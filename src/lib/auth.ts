@@ -23,6 +23,7 @@ export interface RegisterData {
   email: string;
   password: string;
   planSlug: string;
+  phone: string;
 }
 
 export interface LoginData {
@@ -66,6 +67,7 @@ export async function registerClinic(data: RegisterData): Promise<{ userId: stri
     options: {
       data: {
         clinic_name: data.clinicName,
+        phone: data.phone,
         role: 'owner'
       }
     }
@@ -81,7 +83,8 @@ export async function registerClinic(data: RegisterData): Promise<{ userId: stri
     p_auth_id: authUserId,
     p_clinic_name: data.clinicName,
     p_email: data.email,
-    p_plan_slug: data.planSlug
+    p_plan_slug: data.planSlug,
+    p_phone: data.phone
   });
 
   if (rpcError) throw new Error(`Erro ao criar clínica: ${rpcError.message}`);

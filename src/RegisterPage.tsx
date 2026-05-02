@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Mail, Lock, Eye, EyeOff, ArrowLeft, Building2, UserPlus, AlertCircle } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowLeft, Building2, UserPlus, AlertCircle, Phone } from 'lucide-react';
 import Logo from './Logo';
 import { registerClinic } from './lib/auth';
 
 interface RegisterPageProps {
-  onRegisterSuccess: (clinicId: string) => void;
+  onRegisterSuccess: (clinicId: string, email: string) => void;
   onBack: () => void;
   onNavigateToLogin: () => void;
   selectedPlanSlug?: string;
@@ -13,8 +13,8 @@ interface RegisterPageProps {
 
 const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, onBack, onNavigateToLogin, selectedPlanSlug = 'avancado' }) => {
   const [showPassword, setShowPassword] = useState(false);
-  const [focusState, setFocusState] = useState({ name: false, email: false, pass: false });
-  const [formData, setFormData] = useState({ clinicName: '', email: '', password: '' });
+  const [focusState, setFocusState] = useState({ name: false, email: false, pass: false, phone: false });
+  const [formData, setFormData] = useState({ clinicName: '', email: '', password: '', phone: '' });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -46,7 +46,8 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, onBack, 
         clinicName: formData.clinicName,
         email: formData.email,
         password: formData.password,
-        planSlug: selectedPlanSlug
+        planSlug: selectedPlanSlug,
+        phone: formData.phone
       });
       onRegisterSuccess(result.clinicId, formData.email);
     } catch (err: any) {
@@ -88,6 +89,15 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, onBack, 
               <div style={{ position: 'relative' }}>
                 <Building2 size={18} color={focusState.name ? colors.cyan : colors.textMuted} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', transition: 'color 0.3s' }} />
                 <input type="text" placeholder="Sua Clínica" value={formData.clinicName} onChange={(e) => setFormData(p => ({ ...p, clinicName: e.target.value }))} onFocus={() => setFocus('name', true)} onBlur={() => setFocus('name', false)} style={{ width: '100%', backgroundColor: colors.inputBg, border: `1px solid ${focusState.name ? colors.cyan : colors.cyanDark}`, borderRadius: 12, padding: '14px 14px 14px 44px', color: '#ffffff', fontSize: '0.95rem', outline: 'none', transition: 'all 0.3s', boxShadow: focusState.name ? `0 0 0 3px ${colors.cyan}20` : 'none' }} />
+              </div>
+            </div>
+
+            {/* WhatsApp / Telefone */}
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: colors.cyan, marginBottom: 8, fontWeight: 600 }}>WhatsApp / Telefone</label>
+              <div style={{ position: 'relative' }}>
+                <Phone size={18} color={focusState.phone ? colors.cyan : colors.textMuted} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', transition: 'color 0.3s' }} />
+                <input type="text" placeholder="(00) 00000-0000" value={formData.phone} onChange={(e) => setFormData(p => ({ ...p, phone: e.target.value }))} onFocus={() => setFocus('phone', true)} onBlur={() => setFocus('phone', false)} style={{ width: '100%', backgroundColor: colors.inputBg, border: `1px solid ${focusState.phone ? colors.cyan : colors.cyanDark}`, borderRadius: 12, padding: '14px 14px 14px 44px', color: '#ffffff', fontSize: '0.95rem', outline: 'none', transition: 'all 0.3s', boxShadow: focusState.phone ? `0 0 0 3px ${colors.cyan}20` : 'none' }} />
               </div>
             </div>
 
