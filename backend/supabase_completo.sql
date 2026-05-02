@@ -108,4 +108,4 @@ CREATE TRIGGER update_appointments_updated_at BEFORE UPDATE ON appointments FOR 
 INSERT INTO plans (name, description, price_cents, max_professionals, features) VALUES
 ('Starter', 'Para clínicas em crescimento', 19700, 2, '["Até 2 profissionais", "Prontuário eletrônico", "Agendamento online", "Relatórios básicos"]'::JSONB),
 ('Professional', 'O mais escolhido', 39700, 5, '["Até 5 profissionais", "Tudo do Starter", "Gestão financeira", "Telemedicina", "Suporte prioritário"]'::JSONB),
-('Enterprise', 'Grandes operações', 59700, NULL, '["Profissionais ilimitados", "Personalização completa", "API", "Gerente de conta", "SLA"]'::JSONB);
+('Enterprise', 'Grandes operações', 69700, NULL, '["Profissionais ilimitados", "Personalização completa", "API", "Gerente de conta", "SLA"]'::JSONB);
