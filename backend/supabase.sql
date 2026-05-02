@@ -118,3 +118,35 @@ FROM clinics c
 LEFT JOIN patients p ON p.clinic_id = c.id
 LEFT JOIN appointments a ON a.clinic_id = c.id
 GROUP BY c.id, c.name;
+
+-- ============================================
+-- CONFIGURAÇÃO DE E-MAILS (Supabase Auth)
+-- ============================================
+
+-- Tabela de logs de e-mail
+CREATE TABLE IF NOT EXISTS email_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    to_email TEXT NOT NULL,
+    template TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    sent_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Templates de e-mail salvos
+CREATE TABLE IF NOT EXISTS email_templates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT UNIQUE NOT NULL,
+    subject TEXT NOT NULL,
+    body TEXT NOT NULL,
+    active BOOLEAN DEFAULT true,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Templates padrão
+INSERT INTO email_templates (name, subject, body) VALUES
+('welcome', 'Bem-vindo ao Axos Hub!', 'Olá! Bem-vindo ao Axos Hub...'),
+('checkout_confirm', 'Pagamento Confirmado', 'Seu pagamento foi confirmado...'),
+('first_access', 'Seu Acesso ao Axos Hub', 'Aqui estão suas credenciais...')
+ON CONFLICT (name) DO NOTHING;
+
