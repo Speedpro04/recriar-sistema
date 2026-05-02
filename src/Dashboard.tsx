@@ -11,17 +11,76 @@ import {
   MessageSquare, FileText, Zap, UserCog, Send, Star
 } from 'lucide-react';
 import Logo from './Logo';
+import { supabase } from './lib/supabase';
 
 const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
   const [activeTab, setActiveTab] = useState('reception');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showModal, setShowModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Estados de Dados Reais
+  const [specialistsList, setSpecialistsList] = useState<any[]>([]);
+  const [appointmentsList, setAppointmentsList] = useState<any[]>([]);
+  const [newPatient, setNewPatient] = useState({
+    name: '', phone: '', age: '', insurance: 'Particular', lgpd_consent: false
+  });
+  const [newAppointment, setNewAppointment] = useState({
+    date: new Date().toISOString().split('T')[0],
+    time: '09:00',
+    specialist_id: ''
+  });
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const { data: specialists } = await supabase.from('specialists').select('*');
+      const { data: appointments } = await supabase.from('appointments').select('*, patients(*)').order('appointment_time', { ascending: true });
+      if (specialists) setSpecialistsList(specialists);
+      if (appointments) setAppointmentsList(appointments);
+    } catch (error) {
+      console.error('Erro:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
+    fetchData();
+    const channel = supabase.channel('db-changes').on('postgres_changes', { event: '*', schema: 'public' }, () => fetchData()).subscribe();
+    return () => {
+      clearInterval(timer);
+      supabase.removeChannel(channel);
+    };
   }, []);
+
+  const handleSaveAppointment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPatient.name || !newPatient.lgpd_consent) {
+      alert('Nome e Consentimento LGPD são obrigatórios!');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const { data: patient, error: pError } = await supabase.from('patients').insert([{ 
+        name: newPatient.name, phone: newPatient.phone, age: parseInt(newPatient.age) || null,
+        insurance: newPatient.insurance, lgpd_consent: newPatient.lgpd_consent, lgpd_consent_date: new Date().toISOString()
+      }]).select().single();
+      if (pError) throw pError;
+      const { error: aError } = await supabase.from('appointments').insert([{
+        patient_id: patient.id, specialist_id: newAppointment.specialist_id || null,
+        appointment_date: newAppointment.date, appointment_time: newAppointment.time, status: 'Aguardando'
+      }]);
+      if (aError) throw aError;
+      setShowModal(false);
+      setNewPatient({ name: '', phone: '', age: '', insurance: 'Particular', lgpd_consent: false });
+    } catch (error: any) {
+      alert('Erro: ' + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const timeString = currentTime.toLocaleTimeString('pt-BR', { 
     timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', second: '2-digit'
@@ -50,18 +109,6 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
     { id: 'specialists', label: 'Especialistas', icon: <Stethoscope size={20} /> },
     { id: 'reports', label: 'Relatórios', icon: <BarChart3 size={20} /> },
     { id: 'settings', label: 'Configurações', icon: <Settings size={20} /> },
-  ];
-
-  const patientsWaiting = [
-    { id: 1, name: 'Ana Beatriz Silva', arrival: '09:10', waitTime: '25 min', doctor: 'Dra. Helena', status: 'Aguardando', priority: 'Normal' },
-    { id: 2, name: 'Carlos Eduardo Oliveira', arrival: '09:20', waitTime: '15 min', doctor: 'Dr. Ricardo', status: 'Aguardando', priority: 'Urgente' },
-    { id: 3, name: 'Mariana Costa', arrival: '09:35', waitTime: '0 min', doctor: 'Dra. Helena', status: 'Check-in', priority: 'Preferencial' },
-  ];
-
-  const doctorsStatus = [
-    { name: 'Dr. Paulo', specialty: 'Cardiologia', status: 'Em Atendimento', room: 'Sala 01' },
-    { name: 'Dra. Helena', specialty: 'Pediatria', status: 'Disponível', room: 'Sala 02' },
-    { name: 'Dr. Andre', specialty: 'Clínico Geral', status: 'Em Pausa', room: 'Sala 03' },
   ];
 
   const DonutChart = ({ percent, color, label }: { percent: number, color: string, label: string }) => {
@@ -185,23 +232,26 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                      {patientsWaiting.map((p, i) => (
-                        <motion.div key={p.id} whileHover={{ x: 10 }} style={{ display: 'flex', alignItems: 'center', padding: '20px', borderRadius: 20, background: p.priority === 'Urgente' ? 'linear-gradient(to right, #fff, #fff5f5)' : '#fff', border: `1px solid ${p.priority === 'Urgente' ? '#ff525220' : '#f1f5f9'}`, boxShadow: '0 4px 6px rgba(0,0,0,0.01)' }}>
-                          <div style={{ width: 48, height: 48, borderRadius: 14, background: colors.primary, color: colors.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, marginRight: 20 }}>{p.name.charAt(0)}</div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 700, color: colors.primary, fontSize: '1rem', marginBottom: 4 }}>{p.name}</div>
-                            <div style={{ fontSize: '0.85rem', color: colors.textMuted, display: 'flex', gap: 12 }}>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Clock size={14} /> Chegou às {p.arrival}</span>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Stethoscope size={14} /> {p.doctor}</span>
+                      {appointmentsList.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '40px', color: colors.textMuted }}>Nenhum paciente na fila.</div>
+                      ) : (
+                        appointmentsList.map((app) => (
+                          <motion.div key={app.id} whileHover={{ x: 10 }} style={{ display: 'flex', alignItems: 'center', padding: '20px', borderRadius: 20, background: '#fff', border: `1px solid #f1f5f9`, boxShadow: '0 4px 6px rgba(0,0,0,0.01)' }}>
+                            <div style={{ width: 48, height: 48, borderRadius: 14, background: colors.primary, color: colors.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, marginRight: 20 }}>{app.patients?.name?.charAt(0) || 'P'}</div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 700, color: colors.primary, fontSize: '1rem', marginBottom: 4 }}>{app.patients?.name}</div>
+                              <div style={{ fontSize: '0.85rem', color: colors.textMuted, display: 'flex', gap: 12 }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Clock size={14} /> Horário: {app.appointment_time}</span>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Stethoscope size={14} /> {app.type}</span>
+                              </div>
                             </div>
-                          </div>
-                          <div style={{ textAlign: 'right', marginRight: 24 }}>
-                            <div style={{ fontSize: '0.9rem', fontWeight: 800, color: p.waitTime === '0 min' ? colors.success : colors.danger }}>{p.waitTime}</div>
-                            <div style={{ fontSize: '0.7rem', fontWeight: 700, color: colors.textMuted }}>EM ESPERA</div>
-                          </div>
-                          <div style={{ padding: '8px 16px', borderRadius: 10, background: p.priority === 'Urgente' ? colors.danger : p.priority === 'Preferencial' ? colors.warn : '#f1f5f9', color: p.priority === 'Normal' ? colors.textMuted : '#fff', fontSize: '0.75rem', fontWeight: 800 }}>{p.priority}</div>
-                        </motion.div>
-                      ))}
+                            <div style={{ textAlign: 'right', marginRight: 24 }}>
+                              <div style={{ fontSize: '0.9rem', fontWeight: 800, color: colors.success }}>{app.status}</div>
+                              <div style={{ fontSize: '0.7rem', fontWeight: 700, color: colors.textMuted }}>EM ESPERA</div>
+                            </div>
+                          </motion.div>
+                        ))
+                      )}
                     </div>
                   </div>
 
@@ -210,18 +260,22 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
                     <div style={{ background: colors.primary, borderRadius: 28, padding: '28px', color: '#fff', boxShadow: `0 20px 40px ${colors.primary}40` }}>
                       <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10 }}><Stethoscope size={20} color={colors.accent} /> Especialistas</h3>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                        {doctorsStatus.map((d, i) => (
-                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 16, borderBottom: i === doctorsStatus.length - 1 ? 'none' : '1px solid rgba(255,255,255,0.1)' }}>
-                            <div>
-                              <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{d.name}</div>
-                              <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}>{d.specialty}</div>
+                        {specialistsList.length === 0 ? (
+                          <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '20px' }}>Nenhum médico cadastrado.</div>
+                        ) : (
+                          specialistsList.slice(0, 3).map((d, i) => (
+                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 16, borderBottom: i === specialistsList.length - 1 ? 'none' : '1px solid rgba(255,255,255,0.1)' }}>
+                              <div>
+                                <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{d.name}</div>
+                                <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}>{d.specialty}</div>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: d.active ? colors.success : colors.warn }}>{d.active ? 'Disponível' : 'Em Pausa'}</div>
+                                <div style={{ fontSize: '0.7rem', opacity: 0.5 }}>Sala {i+1}</div>
+                              </div>
                             </div>
-                            <div style={{ textAlign: 'right' }}>
-                              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: d.status === 'Disponível' ? colors.success : d.status === 'Em Atendimento' ? colors.accent : colors.warn }}>{d.status}</div>
-                              <div style={{ fontSize: '0.7rem', opacity: 0.5 }}>{d.room}</div>
-                            </div>
-                          </div>
-                        ))}
+                          ))
+                        )}
                       </div>
                     </div>
 
@@ -468,36 +522,35 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
             {/* VIEW: SPECIALISTS */}
             {activeTab === 'specialists' && (
               <motion.div key="specialists" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 32 }}>
-                {[
-                  { name: 'Dra. Helena Souza', spec: 'Pediatria', patients: 12, rating: 4.9, active: true },
-                  { name: 'Dr. Paulo Ricardo', spec: 'Cardiologia', patients: 8, rating: 4.8, active: true },
-                  { name: 'Dr. André Lima', spec: 'Clínico Geral', patients: 0, rating: 4.7, active: false },
-                  { name: 'Dra. Marina Silva', spec: 'Dermatologia', patients: 15, rating: 5.0, active: true },
-                ].map((doc, i) => (
-                  <div key={i} style={{ background: '#fff', borderRadius: 28, padding: '32px', border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 15px 35px rgba(0,0,0,0.02)', position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 6, background: doc.active ? colors.success : colors.textMuted }} />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-                      <div style={{ width: 60, height: 60, borderRadius: 20, background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primary}dd 100%)`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 700, boxShadow: `0 10px 20px ${colors.primary}30` }}>
-                        {doc.name.split(' ')[1].charAt(0)}
+                {specialistsList.length === 0 ? (
+                   <div style={{ gridColumn: 'span 3', textAlign: 'center', padding: '40px', color: colors.textMuted }}>Nenhum especialista cadastrado.</div>
+                ) : (
+                  specialistsList.map((doc, i) => (
+                    <div key={i} style={{ background: '#fff', borderRadius: 28, padding: '32px', border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 15px 35px rgba(0,0,0,0.02)', position: 'relative', overflow: 'hidden' }}>
+                      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 6, background: doc.active ? colors.success : colors.textMuted }} />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+                        <div style={{ width: 60, height: 60, borderRadius: 20, background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primary}dd 100%)`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 700, boxShadow: `0 10px 20px ${colors.primary}30` }}>
+                          {doc.name.charAt(0)}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '1.1rem', color: colors.primary }}>{doc.name}</div>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: colors.accent }}>{doc.specialty}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: '1.1rem', color: colors.primary }}>{doc.name}</div>
-                        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: colors.accent }}>{doc.spec}</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', background: '#f8fafc', padding: '16px', borderRadius: 16 }}>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: colors.primary }}>{doc.rating || 5.0}</div>
+                          <div style={{ fontSize: '0.7rem', fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase' }}>Rating</div>
+                        </div>
+                        <div style={{ width: 1, background: 'rgba(0,0,0,0.05)' }} />
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: '0.8rem', fontWeight: 700, color: doc.active ? colors.success : colors.danger }}>{doc.active ? 'Ativo' : 'Inativo'}</div>
+                          <div style={{ fontSize: '0.7rem', fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase' }}>Status</div>
+                        </div>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', background: '#f8fafc', padding: '16px', borderRadius: 16 }}>
-                      <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '1.2rem', fontWeight: 700, color: colors.primary }}>{doc.patients}</div>
-                        <div style={{ fontSize: '0.7rem', fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase' }}>Hoje</div>
-                      </div>
-                      <div style={{ width: 1, background: 'rgba(0,0,0,0.05)' }} />
-                      <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '1.2rem', fontWeight: 700, color: colors.primary, display: 'flex', alignItems: 'center', gap: 4 }}>{doc.rating} <Star size={14} color={colors.warn} fill={colors.warn} /></div>
-                        <div style={{ fontSize: '0.7rem', fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase' }}>Avaliação</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </motion.div>
             )}
 
@@ -569,14 +622,53 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} style={{ background: '#fff', width: '100%', maxWidth: '500px', borderRadius: 32, padding: '40px', position: 'relative', boxShadow: '0 30px 60px -12px rgba(0,0,0,0.3)' }}>
               <button onClick={() => setShowModal(false)} style={{ position: 'absolute', top: 24, right: 24, background: '#f1f5f9', border: 'none', borderRadius: '50%', padding: 10, cursor: 'pointer' }}><X size={20} color={colors.primary} /></button>
               <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: colors.primary, marginBottom: 8 }}>Novo Agendamento</h2>
-              <p style={{ color: colors.textMuted, marginBottom: 32 }}>Preencha os dados do paciente para o check-in.</p>
-              <form style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                <div><label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>Paciente</label><input type="text" placeholder="Nome do paciente" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-                  <div><label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>Data</label><input type="date" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} /></div>
-                  <div><label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>Horário</label><input type="time" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} /></div>
+              <p style={{ color: colors.textMuted, marginBottom: 32 }}>Preencha os dados do paciente e confirme o consentimento LGPD.</p>
+              <form onSubmit={handleSaveAppointment} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>Nome Completo</label>
+                  <input type="text" required value={newPatient.name} onChange={e => setNewPatient({...newPatient, name: e.target.value})} placeholder="Ex: João Silva" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
                 </div>
-                <button type="button" onClick={() => setShowModal(false)} style={{ marginTop: 12, background: colors.primary, color: '#fff', border: 'none', padding: '16px', borderRadius: 14, fontWeight: 700, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}><Check size={20} /> Salvar Agendamento</button>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>WhatsApp / Telefone</label>
+                    <input type="text" value={newPatient.phone} onChange={e => setNewPatient({...newPatient, phone: e.target.value})} placeholder="(00) 00000-0000" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>Idade</label>
+                    <input type="number" value={newPatient.age} onChange={e => setNewPatient({...newPatient, age: e.target.value})} placeholder="Ex: 30" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>Data</label>
+                    <input type="date" required value={newAppointment.date} onChange={e => setNewAppointment({...newAppointment, date: e.target.value})} style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>Horário</label>
+                    <input type="time" required value={newAppointment.time} onChange={e => setNewAppointment({...newAppointment, time: e.target.value})} style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>Especialista</label>
+                  <select value={newAppointment.specialist_id} onChange={e => setNewAppointment({...newAppointment, specialist_id: e.target.value})} style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', background: '#fff' }}>
+                    <option value="">Selecione um médico...</option>
+                    {specialistsList.map(s => <option key={s.id} value={s.id}>{s.name} ({s.specialty})</option>)}
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: '#f8fafc', padding: '16px', borderRadius: 16, border: '1px solid #e2e8f0' }}>
+                  <input type="checkbox" required checked={newPatient.lgpd_consent} onChange={e => setNewPatient({...newPatient, lgpd_consent: e.target.checked})} style={{ marginTop: 4, cursor: 'pointer' }} id="lgpd" />
+                  <label htmlFor="lgpd" style={{ fontSize: '0.8rem', color: colors.textMuted, cursor: 'pointer', lineHeight: '1.4' }}>
+                    <strong>Termo de Consentimento LGPD:</strong> O paciente autoriza a coleta e tratamento de seus dados pessoais para fins de atendimento clínico e comunicações via WhatsApp conforme a Lei 13.709/18.
+                  </label>
+                </div>
+
+                <button type="submit" disabled={isLoading} style={{ marginTop: 12, background: colors.primary, opacity: isLoading ? 0.7 : 1, color: '#fff', border: 'none', padding: '16px', borderRadius: 14, fontWeight: 700, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                  {isLoading ? 'Salvando...' : <><Check size={20} /> Salvar Agendamento</>}
+                </button>
               </form>
             </motion.div>
           </div>
