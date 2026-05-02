@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .celery_app import celery_app
+from .api import stripe
 
 app = FastAPI(
     title="Axos Hub API",
@@ -16,6 +17,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Incluir rotas
+app.include_router(stripe.router)
 
 @app.get("/")
 async def root():
