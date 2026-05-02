@@ -12,10 +12,10 @@ export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const stats = [
-    { label: "Atendimentos hoje", value: "24", change: "+12%", icon: Users, color: "bg-blue-500" },
-    { label: "Faturamento mês", value: "R$ 142.500", change: "+18%", icon: DollarSign, color: "bg-green-500" },
+    { label: "Atendimentos hoje", value: "197", change: "+12%", icon: Users, color: "bg-blue-500" },
+    { label: "Faturamento mês", value: "R$ 397.000", change: "+18%", icon: DollarSign, color: "bg-green-500" },
     { label: "Tempo médio", value: "22 min", change: "-8%", icon: Clock, color: "bg-purple-500" },
-    { label: "Novos pacientes", value: "156", change: "+24%", icon: UserPlus, color: "bg-orange-500" }
+    { label: "Novos pacientes", value: "597", change: "+24%", icon: UserPlus, color: "bg-orange-500" }
   ]
 
   const appointments = [
