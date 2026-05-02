@@ -215,6 +215,62 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
         </div>
       </section>
 
+      {/* LGPD Compliance Section */}
+      <section style={{ padding: '100px 0', background: 'linear-gradient(135deg, #130f40 0%, #2c3e50 100%)', color: '#fff', overflow: 'hidden', position: 'relative' }}>
+        <div style={{ position: 'absolute', top: -100, left: -100, width: 400, height: 400, background: colors.btnSuccess, filter: 'blur(200px)', opacity: 0.1, borderRadius: '50%' }} />
+        <div style={{ ...containerStyle, padding: '0 20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
+          <motion.div
+            initial={{ opacity: 0, x: -40 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+          >
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '8px 16px', background: 'rgba(51, 217, 178, 0.1)', border: '1px solid rgba(51, 217, 178, 0.3)', borderRadius: '20px', color: colors.btnSuccess, fontSize: '0.85rem', fontWeight: '700', marginBottom: 32, textTransform: 'uppercase' }}>
+              <ShieldCheck size={18} /> Segurança de Dados Enterprise
+            </div>
+            <h2 style={{ fontSize: '3.5rem', fontWeight: '800', marginBottom: 24, lineHeight: '1.1', letterSpacing: '-0.02em' }}>Sua Clínica 100% aderente à LGPD.</h2>
+            <p style={{ fontSize: '1.2rem', color: 'rgba(255,255,255,0.7)', lineHeight: '1.6', marginBottom: 40 }}>
+              A Solara Connect foi construída sob os pilares da Lei Geral de Proteção de Dados (Lei 13.709/18). 
+              Garantimos que cada dado de saúde, prontuário e informação pessoal seja tratado com o mais alto nível de criptografia e governança.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {[
+                "Criptografia de ponta a ponta em todos os prontuários médicos.",
+                "Gestão rigorosa de consentimento e termos de uso.",
+                "Hospedagem em servidores com certificação ISO 27001 e HIPAA.",
+                "Logs de auditoria completos para cada acesso a dado sensível."
+              ].map((item, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: '1.05rem', fontWeight: '500' }}>
+                  <div style={{ width: 24, height: 24, borderRadius: '50%', background: colors.btnSuccess, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <CheckCircle2 size={16} color={colors.primary} />
+                  </div>
+                  {item}
+                </div>
+              ))}
+            </div>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            style={{ position: 'relative' }}
+          >
+            <div style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', padding: '48px', borderRadius: '40px', position: 'relative', zIndex: 1 }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: 32, display: 'flex', alignItems: 'center', gap: 16 }}>
+                <Building size={32} color={colors.btnSuccess} /> Certificações de Segurança
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                {['LGPD Brasil', 'HIPAA Ready', 'ISO 27001', 'SOC2 Type II'].map((cert, i) => (
+                  <div key={i} style={{ padding: '24px', background: 'rgba(255,255,255,0.03)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', textAlign: 'center', fontWeight: '700' }}>
+                    {cert}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{ position: 'absolute', bottom: -30, right: -30, width: 200, height: 200, background: colors.btnSuccess, filter: 'blur(100px)', opacity: 0.2, borderRadius: '50%' }} />
+          </motion.div>
+        </div>
+      </section>
+
       {/* Pricing Section */}
       <section style={{ padding: '120px 0', background: colors.cardBg, borderTop: `1px solid ${colors.cardBorder}30`, borderBottom: `1px solid ${colors.cardBorder}30`, marginBottom: '120px' }}>
         <div style={{ ...containerStyle, padding: '0 20px' }}>
