@@ -2,13 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, Calendar, Clock, Activity, 
-  Settings, LogOut, Bell, Search,
-  Plus, ChevronRight, MoreVertical,
-  Filter, TrendingUp, ShieldCheck,
-  BarChart3, PieChart, DollarSign,
-  UserX, Heart, X, Check, MapPin,
+  Settings, LogOut, Search,
+  Plus, TrendingUp,
+  BarChart3, X, Check,
   Stethoscope, UserPlus, AlertCircle, Printer,
-  MessageSquare, FileText, Zap, UserCog, Send, Star,
+  MessageSquare, FileText, Zap, UserCog, Send,
   CheckCircle2, Target, Trash2
 } from 'lucide-react';
 import Logo from './Logo';
@@ -321,7 +319,7 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
                     <div key={i} style={{ background: '#fff', padding: 24, borderRadius: 28, border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 10px 30px rgba(0,0,0,0.02)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                         <div style={{ width: 48, height: 48, borderRadius: 14, background: `${stat.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {React.cloneElement(stat.icon as React.ReactElement, { color: stat.color })}
+                          {React.cloneElement(stat.icon as React.ReactElement<any>, { color: stat.color })}
                         </div>
                         <div style={{ fontSize: '0.75rem', fontWeight: 800, color: stat.color, background: `${stat.color}10`, padding: '4px 10px', borderRadius: 8 }}>AO VIVO</div>
                       </div>
@@ -341,7 +339,7 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
                         <Users size={24} color={colors.accent} /> Pacientes para Reativar
                       </h3>
                       <div style={{ display: 'flex', gap: 10 }}>
-                        <button style={{ padding: '8px 16px', borderRadius: 10, border: `1px solid ${colors.cardBorder}`, background: '#f8fafc', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>Filtrar por Tempo</button>
+                        <button style={{ padding: '8px 16px', borderRadius: 10, border: `1px solid rgba(0,0,0,0.1)`, background: '#f8fafc', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>Filtrar por Tempo</button>
                         <button style={{ padding: '8px 16px', borderRadius: 10, border: 'none', background: colors.primary, color: '#fff', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}>Exportar Lista</button>
                       </div>
                     </div>

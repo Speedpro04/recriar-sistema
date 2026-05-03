@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ShieldCheck, Clock, ArrowRight, Stethoscope, Building, CheckCircle2, Activity } from 'lucide-react';
+import { ShieldCheck, Clock, ArrowRight, Stethoscope, Building, CheckCircle2 } from 'lucide-react';
 import Logo from './Logo';
 
 interface LandingPageProps {
   onNavigateToLogin: () => void;
-  onNavigateToRegister: (planName: string, planPrice: string) => void;
+  onNavigateToRegister: (planName: string, planPrice: string, planSlug: string, priceId: string) => void;
 }
 
 const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigateToRegister }) => {
@@ -205,7 +205,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
                 style={{ background: colors.bg, border: `1px solid ${colors.cardBorder}50`, padding: '40px 32px', borderRadius: '32px', transition: 'all 0.3s ease' }}
               >
                 <div style={{ width: 64, height: 64, background: colors.cardBg, borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 32, border: `1px solid ${colors.cardBorder}` }}>
-                  {React.cloneElement(feat.icon as React.ReactElement, { size: 32, color: colors.primary })}
+                  {React.cloneElement(feat.icon as React.ReactElement<any>, { size: 32, color: colors.primary })}
                 </div>
                 <h3 style={{ fontSize: '1.6rem', fontWeight: '800', marginBottom: 16, color: colors.primary }}>{feat.title}</h3>
                 <p style={{ color: '#666', fontSize: '1rem', lineHeight: '1.6' }}>{feat.desc}</p>
@@ -281,10 +281,10 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24 }}>
             {[
-              { title: "Básico", esp: "Até 2 especialistas", price: "197", color: colors.btnSuccess },
-              { title: "Crescimento", esp: "3 a 5 especialistas", price: "397", color: colors.cardBorder },
-              { title: "Avançado", esp: "6 a 9 especialistas", price: "597", color: colors.btnWarn },
-              { title: "Enterprise", esp: "Acima de 10", price: "897", color: colors.primary }
+              { title: "Básico", slug: "basico", esp: "Até 2 especialistas", price: "197", color: colors.btnSuccess, priceId: import.meta.env.VITE_STRIPE_PRICE_BASICO },
+              { title: "Crescimento", slug: "crescimento", esp: "3 a 5 especialistas", price: "397", color: colors.cardBorder, priceId: import.meta.env.VITE_STRIPE_PRICE_CRESCIMENTO },
+              { title: "Avançado", slug: "avancado", esp: "6 a 9 especialistas", price: "597", color: colors.btnWarn, priceId: import.meta.env.VITE_STRIPE_PRICE_AVANCADO },
+              { title: "Enterprise", slug: "enterprise", esp: "Acima de 10", price: "897", color: colors.primary, priceId: import.meta.env.VITE_STRIPE_PRICE_ENTERPRISE }
             ].map((plan, i) => (
               <motion.div 
                 key={i}
@@ -333,7 +333,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
                 </ul>
                 
                 <button 
-                  onClick={() => onNavigateToRegister(plan.title, plan.price)}
+                  onClick={() => onNavigateToRegister(plan.title, plan.price, plan.slug, plan.priceId || '')}
                   style={{ 
                     width: '100%', 
                     background: plan.color === colors.primary ? colors.primary : 'transparent', 
@@ -393,7 +393,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
                 <span style={{ fontWeight: '700', color: colors.primary }}>Solara Connect © 2026</span>
               </div>
               <div style={{ fontSize: '0.85rem', color: '#888' }}>
-                Contato: <a href="mailto:axoshub.solara@gmail.com" style={{ color: colors.accent, textDecoration: 'none' }}>axoshub.solara@gmail.com</a>
+                Contato: <a href="mailto:axoshub.solara@gmail.com" style={{ color: colors.btnSuccess, textDecoration: 'none' }}>axoshub.solara@gmail.com</a>
               </div>
             </div>
 

@@ -7,13 +7,15 @@ import { activateSubscription, logEmailSent } from './lib/auth';
 interface CheckoutPageProps {
   planName: string;
   planPrice: string;
+  priceId: string;
   clinicId: string;
   userEmail: string;
   onPaymentSuccess: () => void;
   onBack: () => void;
+  onDevPass?: () => void;
 }
 
-const CheckoutPage: React.FC<CheckoutPageProps> = ({ planName, planPrice, clinicId, userEmail, onPaymentSuccess, onBack }) => {
+const CheckoutPage: React.FC<CheckoutPageProps> = ({ planName, planPrice, priceId, clinicId, userEmail, onPaymentSuccess, onBack, onDevPass }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState('');

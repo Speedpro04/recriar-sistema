@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import Dashboard from './Dashboard';
 import LandingPage from './LandingPage';
 import LoginPage from './LoginPage';
@@ -13,11 +13,17 @@ interface SelectedPlan {
   name: string;
   price: string;
   slug: string;
+  priceId: string;
 }
 
 function App() {
   const [view, setView] = useState<ViewState>('landing');
-  const [selectedPlan, setSelectedPlan] = useState<SelectedPlan>({ name: 'Avançado', price: '597', slug: 'avancado' });
+  const [selectedPlan, setSelectedPlan] = useState<SelectedPlan>({ 
+    name: 'Avançado', 
+    price: '597', 
+    slug: 'avancado',
+    priceId: import.meta.env.VITE_STRIPE_PRICE_AVANCADO || ''
+  });
   const [clinicId, setClinicId] = useState('');
   const [userEmail, setUserEmail] = useState('');
 
@@ -35,12 +41,8 @@ function App() {
     setView('dashboard');
   };
 
-  const handleNavigateToRegister = (name: string, price: string) => {
-    const slug = name.toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      .replace(/\s+/g, '-');
-    
-    setSelectedPlan({ name, price, slug: planSlugMap[slug] || slug });
+  const handleNavigateToRegister = (name: string, price: string, slug: string, priceId: string) => {
+    setSelectedPlan({ name, price, slug, priceId });
     setView('register');
   };
 
@@ -102,6 +104,7 @@ function App() {
         <CheckoutPage 
           planName={selectedPlan.name}
           planPrice={selectedPlan.price}
+          priceId={selectedPlan.priceId}
           clinicId={clinicId}
           userEmail={userEmail}
           onBack={() => setView('register')}

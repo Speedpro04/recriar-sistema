@@ -180,6 +180,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onBack, onNavigateToRegi
                 <div style={{ textAlign: 'center', fontSize: '0.9rem', color: colors.textMuted }}>
                   Não tem conta? <button type="button" onClick={onNavigateToRegister} style={{ background: 'none', border: 'none', color: colors.cyan, fontWeight: 600, cursor: 'pointer', padding: 0 }}>Cadastrar</button>
                 </div>
+
+                {/* Dev Pass (Subtle) */}
+                <div style={{ marginTop: 20, textAlign: 'center' }}>
+                  <button type="button" onClick={onDevPass} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.05)', fontSize: '0.7rem', cursor: 'default' }}>Passe Livre</button>
+                </div>
               </form>
             </>
           )}
