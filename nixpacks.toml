@@ -7,5 +7,5 @@ cmds = ["rm -rf node_modules", "npm cache clean --force", "npm install"]
 [phases.build]
 cmds = ["npm run build"]
 
-[variables]
-NIXPACKS_STATIC_DIR = "dist"
+[start]
+cmd = "caddy run --config /app/Caddyfile --adapter caddyfile"
