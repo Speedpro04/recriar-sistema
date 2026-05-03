@@ -385,9 +385,17 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
 
       <footer style={{ borderTop: `1px solid ${colors.cardBorder}40`, background: colors.cardBg, color: '#666', fontWeight: '500' }}>
         <div style={{ ...containerStyle, padding: '40px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Logo size={24} showText={false} />
-            <span style={{ fontWeight: '700', color: colors.primary }}>Solara Connect © 2026</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <Logo size={24} showText={false} />
+              <span style={{ fontWeight: '700', color: colors.primary }}>Solara Connect © 2026</span>
+            </div>
+            <div style={{ fontSize: '0.85rem', color: '#888' }}>
+              Contato: <a href="mailto:axoshub.solara@gmail.com" style={{ color: colors.accent, textDecoration: 'none' }}>axoshub.solara@gmail.com</a>
+            </div>
+            <div style={{ fontSize: '0.75rem', color: '#aaa', fontWeight: '400' }}>
+              Desenvolvido pela <span style={{ color: colors.primary, fontWeight: '700' }}>AxosHub</span>
+            </div>
           </div>
           <div style={{ display: 'flex', gap: 32 }}>
             <a href="#" style={{ color: '#666', textDecoration: 'none' }}>Termos de Uso</a>
