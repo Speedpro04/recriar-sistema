@@ -8,7 +8,7 @@ interface LogoProps {
   text?: string;
 }
 
-const Logo: React.FC<LogoProps> = ({ size = 40, showText = true, textColor = 'inherit', text = 'Solara Medical' }) => {
+const Logo: React.FC<LogoProps> = ({ size = 40, showText = true, textColor = 'inherit', text = 'Solara Connect' }) => {
   const iconSize = size + 10;
   const textSize = (size * 0.45) + 3;
 

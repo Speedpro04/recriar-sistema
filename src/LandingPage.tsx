@@ -109,7 +109,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
           <motion.div initial="initial" animate="animate" variants={staggerContainer} style={{ maxWidth: '900px' }}>
             <motion.div variants={fadeInUp} style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 20px', background: colors.cardBg, border: `1px solid ${colors.cardBorder}80`, borderRadius: '30px', color: colors.primary, fontSize: '0.9rem', fontWeight: '600', marginBottom: 40, textTransform: 'uppercase' }}>
               <span style={{ width: 8, height: 8, background: colors.btnSuccess, borderRadius: '50%', display: 'inline-block', boxShadow: `0 0 10px ${colors.btnSuccess}` }} />
-              O Novo Padrão em Gestão Médica
+              O Novo Padrão em Gestão de Clínicas
             </motion.div>
             
             <motion.h1 variants={fadeInUp} style={{ fontSize: '5.5rem', fontWeight: '800', lineHeight: '1.1', marginBottom: 32, letterSpacing: '-0.04em', color: colors.primary }}>
@@ -123,7 +123,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
             </motion.h1>
             
             <motion.p variants={fadeInUp} style={{ fontSize: '1.3rem', color: '#555', maxWidth: 700, margin: '0 auto 48px', fontWeight: '400', lineHeight: '1.6' }}>
-              Reduza filas, otimize a agenda dos seus especialistas e ofereça uma experiência premium desde a recepção até o consultório.
+              A solução completa para Clínicas Odontológicas, Estética, Medicina e Bem-estar. Automatize sua recepção e recupere pacientes em um só lugar.
             </motion.p>
             
             <motion.div variants={fadeInUp} style={{ display: 'flex', justifyContent: 'center', gap: 24 }}>
@@ -153,7 +153,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
             style={{ marginTop: '80px', width: '100%', position: 'relative' }}
           >
             <div style={{ borderRadius: '32px', overflow: 'hidden', border: `1px solid ${colors.cardBorder}50`, boxShadow: `0 40px 80px ${colors.primary}15`, background: colors.bg, padding: '16px' }}>
-               <img src="/hero.png" alt="Interface Solara Medical" style={{ width: '100%', borderRadius: '20px', display: 'block', border: `1px solid ${colors.cardBorder}30` }} onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=2000&q=80'; }} />
+               <img src="/hero.png" alt="Interface Solara Connect" style={{ width: '100%', borderRadius: '20px', display: 'block', border: `1px solid ${colors.cardBorder}30` }} onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=2000&q=80'; }} />
             </div>
             
             <motion.div animate={{ y: [0, -15, 0] }} transition={{ repeat: Infinity, duration: 5, ease: 'easeInOut' }} style={{ position: 'absolute', top: -30, right: -30, background: colors.bg, border: `1px solid ${colors.cardBorder}`, padding: '20px 32px', borderRadius: '24px', boxShadow: `0 20px 40px ${colors.primary}10`, display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -174,7 +174,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
         <div style={{ ...containerStyle, padding: '60px 20px', textAlign: 'center' }}>
           <p style={{ color: '#666', fontSize: '0.9rem', fontWeight: '600', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 40 }}>Aprovado por Clínicas e Hospitais de Referência</p>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: 0.6, filter: 'grayscale(100%)' }}>
-            {['HOSPITAL ISRAELITA', 'CLÍNICA SÍRIO', 'GRUPO DASA', 'REDE D\'OR'].map((brand, i) => (
+            {['ODONTOLOGIA', 'ESTÉTICA', 'DERMATOLOGIA', 'FISIOTERAPIA', 'PEDIATRIA'].map((brand, i) => (
               <h3 key={i} style={{ fontSize: '1.5rem', fontWeight: '800', color: colors.primary }}>{brand}</h3>
             ))}
           </div>
@@ -185,8 +185,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
       <section style={{ padding: '120px 0' }}>
         <div style={{ ...containerStyle, padding: '0 20px' }}>
           <div style={{ textAlign: 'center', marginBottom: 80, maxWidth: 800, margin: '0 auto 80px' }}>
-            <h2 style={{ fontSize: '3.5rem', fontWeight: '800', marginBottom: 24, color: colors.primary, letterSpacing: '-0.02em' }}>Projetado para o Corpo Clínico</h2>
-            <p style={{ fontSize: '1.2rem', color: '#666', lineHeight: '1.6' }}>O Solara Connect elimina a burocracia da recepção, permitindo que os médicos foquem exclusivamente no que importa: a saúde do paciente.</p>
+            <h2 style={{ fontSize: '3.5rem', fontWeight: '800', marginBottom: 24, color: colors.primary, letterSpacing: '-0.02em' }}>Projetado para sua Clínica</h2>
+            <p style={{ fontSize: '1.2rem', color: '#666', lineHeight: '1.6' }}>O Solara Connect elimina a burocracia, permitindo que seus especialistas foquem no que importa: o resultado do cliente.</p>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 32 }}>

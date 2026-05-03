@@ -102,6 +102,7 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
 
   const menuItems = [
     { id: 'reception', label: 'Recepção', icon: <Users size={20} /> },
+    { id: 'recovery', label: 'Recuperação', icon: <TrendingUp size={20} /> },
     { id: 'agenda', label: 'Agenda Kanban', icon: <Calendar size={20} /> },
     { id: 'emr', label: 'Prontuário', icon: <FileText size={20} /> },
     { id: 'whatsapp', label: 'WhatsApp', icon: <MessageSquare size={20} /> },
@@ -133,7 +134,7 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
       
       {/* SIDEBAR */}
       <div style={{ width: '280px', backgroundColor: colors.sidebar, color: '#fff', padding: '32px 20px', display: 'flex', flexDirection: 'column', position: 'fixed', height: '100vh', zIndex: 100, overflowY: 'auto' }}>
-        <div style={{ marginBottom: 40, padding: '0 12px' }}><Logo size={40} textColor="#fff" text="Solara Medical" /></div>
+        <div style={{ marginBottom: 40, padding: '0 12px' }}><Logo size={40} textColor="#fff" text="Solara Connect" /></div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {menuItems.map(item => (
             <button key={item.id} onClick={() => setActiveTab(item.id)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', borderRadius: 12, border: 'none', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 600, transition: 'all 0.2s', backgroundColor: activeTab === item.id ? 'rgba(126, 214, 223, 0.15)' : 'transparent', color: activeTab === item.id ? colors.accent : 'rgba(255,255,255,0.6)', textAlign: 'left' }}>
@@ -421,7 +422,7 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
                          <div key={i} style={{ padding: '16px 20px', borderBottom: '1px solid rgba(0,0,0,0.03)', display: 'flex', gap: 12, cursor: 'pointer', background: i === 0 ? '#fff' : 'transparent', borderLeft: i === 0 ? `4px solid ${colors.success}` : '4px solid transparent' }}>
                            <div style={{ width: 44, height: 44, borderRadius: '50%', background: colors.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '1.1rem' }}>{chat.name.charAt(0)}</div>
                            <div style={{ flex: 1 }}>
-                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><span style={{ fontWeight: 700, fontSize: '0.95rem', color: colors.primary }}>{chat.name}</span> <span style={{ fontSize: '0.75rem', color: i === 0 ? colors.success : colors.textMuted, fontWeight: i === 0 ? 700 : 500 }}>{chat.time}</span></div>
+                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><span style={{ fontWeight: 800, fontSize: '0.95rem', color: colors.primary }}>Solara <span style={{ color: colors.accent }}>Connect</span></span> <span style={{ fontSize: '0.75rem', color: i === 0 ? colors.success : colors.textMuted, fontWeight: i === 0 ? 700 : 500 }}>{chat.time}</span></div>
                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span style={{ fontSize: '0.85rem', color: colors.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 160, fontWeight: i === 0 ? 600 : 500 }}>{chat.msg}</span> {chat.unread > 0 && <span style={{ width: 20, height: 20, background: colors.success, color: '#fff', borderRadius: '50%', fontSize: '0.7rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>{chat.unread}</span>}</div>
                            </div>
                          </div>
