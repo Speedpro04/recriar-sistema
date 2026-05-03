@@ -50,7 +50,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ planName, planPrice, clinic
       await logEmailSent({
         clinicId,
         toEmail: userEmail || 'cliente@clinica.com',
-        subject: `Bem-vindo ao Solara Medical — Plano ${planName}`,
+        subject: `Bem-vindo ao Solara Connect — Plano ${planName}`,
         template: 'welcome',
         metadata: { plan: planName, price: planPrice }
       });

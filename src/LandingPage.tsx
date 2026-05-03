@@ -387,7 +387,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
         <div style={{ ...containerStyle, padding: '40px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <Logo size={24} showText={false} />
-            <span style={{ fontWeight: '700', color: colors.primary }}>Solara Medical © 2026</span>
+            <span style={{ fontWeight: '700', color: colors.primary }}>Solara Connect © 2026</span>
           </div>
           <div style={{ display: 'flex', gap: 32 }}>
             <a href="#" style={{ color: '#666', textDecoration: 'none' }}>Termos de Uso</a>
