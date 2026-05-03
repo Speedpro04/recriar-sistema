@@ -293,6 +293,112 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
               </motion.div>
             )}
 
+            {/* VIEW: RECOVERY (RECUPERAÇÃO) */}
+            {activeTab === 'recovery' && (
+              <motion.div key="recovery" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+                
+                {/* Metrics Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24 }}>
+                  {[
+                    { label: 'Receita em Risco', value: 'R$ 48.500', color: colors.warn, icon: <TrendingUp size={24} />, desc: 'Orçamentos pendentes' },
+                    { label: 'Pacientes Inativos', value: '142', color: colors.danger, icon: <Users size={24} />, desc: 'Há mais de 90 dias' },
+                    { label: 'Taxa de Retorno', value: '12%', color: colors.success, icon: <CheckCircle2 size={24} />, desc: '+2% este mês' },
+                    { label: 'Recuperado (Mês)', value: 'R$ 8.200', color: colors.accent, icon: <Activity size={24} />, desc: 'Meta: R$ 10.000' }
+                  ].map((stat, i) => (
+                    <div key={i} style={{ background: '#fff', padding: 24, borderRadius: 28, border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 10px 30px rgba(0,0,0,0.02)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <div style={{ width: 48, height: 48, borderRadius: 14, background: `${stat.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {React.cloneElement(stat.icon as React.ReactElement, { color: stat.color })}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 800, color: stat.color, background: `${stat.color}10`, padding: '4px 10px', borderRadius: 8 }}>AO VIVO</div>
+                      </div>
+                      <div style={{ fontSize: '1.8rem', fontWeight: 800, color: colors.primary, marginBottom: 4 }}>{stat.value}</div>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 700, color: colors.primary }}>{stat.label}</div>
+                      <div style={{ fontSize: '0.75rem', color: colors.textMuted, marginTop: 4 }}>{stat.desc}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 32 }}>
+                  
+                  {/* Inactive Patients List */}
+                  <div style={{ background: '#fff', borderRadius: 32, padding: 32, border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 15px 40px rgba(0,0,0,0.03)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
+                      <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: colors.primary, display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <Users size={24} color={colors.accent} /> Pacientes para Reativar
+                      </h3>
+                      <div style={{ display: 'flex', gap: 10 }}>
+                        <button style={{ padding: '8px 16px', borderRadius: 10, border: `1px solid ${colors.cardBorder}`, background: '#f8fafc', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>Filtrar por Tempo</button>
+                        <button style={{ padding: '8px 16px', borderRadius: 10, border: 'none', background: colors.primary, color: '#fff', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}>Exportar Lista</button>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      {[
+                        { name: 'Ricardo Mendes', lastVisit: '120 dias atrás', procedure: 'Implante Dentário', value: 'R$ 4.500', risk: 'Alto' },
+                        { name: 'Julia Rocha', lastVisit: '155 dias atrás', procedure: 'Harmonização Facial', value: 'R$ 2.800', risk: 'Crítico' },
+                        { name: 'Marcos Braz', lastVisit: '95 dias atrás', procedure: 'Limpeza e Profilaxia', value: 'R$ 350', risk: 'Médio' },
+                        { name: 'Luciana Costa', lastVisit: '210 dias atrás', procedure: 'Clareamento Laser', value: 'R$ 1.200', risk: 'Crítico' },
+                      ].map((p, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '16px 20px', background: '#f8fafc', borderRadius: 20, border: '1px solid transparent', transition: 'all 0.2s', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.borderColor = colors.accent}>
+                          <div style={{ width: 44, height: 44, borderRadius: 14, background: colors.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, marginRight: 16 }}>{p.name.charAt(0)}</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 700, color: colors.primary, fontSize: '1rem' }}>{p.name}</div>
+                            <div style={{ fontSize: '0.8rem', color: colors.textMuted }}>{p.procedure} • Última visita: {p.lastVisit}</div>
+                          </div>
+                          <div style={{ textAlign: 'right', marginRight: 32 }}>
+                            <div style={{ fontSize: '1rem', fontWeight: 800, color: colors.primary }}>{p.value}</div>
+                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: p.risk === 'Crítico' ? colors.danger : colors.warn }}>Risco {p.risk}</div>
+                          </div>
+                          <button style={{ background: colors.success, color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 12, fontSize: '0.85rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxShadow: `0 8px 16px ${colors.success}30` }}>
+                            <MessageSquare size={16} /> Recuperar
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Campaigns Sidebar */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                    <div style={{ background: `linear-gradient(135deg, ${colors.primary} 0%, #1e1b4b 100%)`, borderRadius: 32, padding: 32, color: '#fff', boxShadow: `0 20px 40px ${colors.primary}40`, position: 'relative', overflow: 'hidden' }}>
+                      <div style={{ position: 'absolute', top: -50, right: -50, width: 200, height: 200, background: colors.accent, filter: 'blur(100px)', opacity: 0.15 }}></div>
+                      <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>Campanhas Inteligentes</h3>
+                      <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)', marginBottom: 24, lineHeight: 1.6 }}>Selecione um modelo de campanha e deixe a IA da Solara cuidar das mensagens.</p>
+                      
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        {[
+                          { title: 'Reativação VIP', desc: 'Para pacientes inativos há +180 dias', color: colors.accent },
+                          { title: 'Fechamento de Orçamento', desc: 'Follow-up para orçamentos pendentes', color: colors.success },
+                          { title: 'Promoção Especial', desc: 'Envio em massa para toda a base', color: colors.warn }
+                        ].map((c, i) => (
+                          <div key={i} style={{ background: 'rgba(255,255,255,0.05)', padding: 16, borderRadius: 20, border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
+                            <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#fff', marginBottom: 4 }}>{c.title}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)', marginBottom: 12 }}>{c.desc}</div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '0.75rem', color: c.color, fontWeight: 700 }}>Disponível</span>
+                              <button style={{ background: 'transparent', border: `1px solid ${c.color}`, color: c.color, padding: '4px 12px', borderRadius: 8, fontSize: '0.75rem', fontWeight: 700 }}>Configurar</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ background: '#fff', borderRadius: 32, padding: 32, border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 15px 40px rgba(0,0,0,0.03)', textAlign: 'center' }}>
+                      <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                        <Target size={32} color={colors.primary} />
+                      </div>
+                      <h4 style={{ fontSize: '1.1rem', fontWeight: 800, color: colors.primary, marginBottom: 8 }}>Dica da IA</h4>
+                      <p style={{ fontSize: '0.85rem', color: colors.textMuted, lineHeight: 1.5 }}>
+                        Pacientes que realizaram <strong>Limpeza</strong> têm 40% mais chance de aceitar novos orçamentos se contatados em até 5 dias.
+                      </p>
+                    </div>
+                  </div>
+
+                </div>
+
+              </motion.div>
+            )}
+
             {/* VIEW: AGENDA KANBAN */}
             {activeTab === 'agenda' && (
               <motion.div key="agenda" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 32, height: 'calc(100vh - 250px)' }}>
