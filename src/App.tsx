@@ -27,13 +27,6 @@ function App() {
   const [clinicId, setClinicId] = useState('');
   const [userEmail, setUserEmail] = useState('');
 
-  // Mapa de slug para preço (usado quando vem da LP)
-  const planSlugMap: Record<string, string> = {
-    'basico': 'basico',
-    'crescimento': 'crescimento',
-    'avancado': 'avancado',
-    'enterprise': 'enterprise'
-  };
 
   const handleDevPass = () => {
     setClinicId('dev-clinic-123');

@@ -15,7 +15,7 @@ interface CheckoutPageProps {
   onDevPass?: () => void;
 }
 
-const CheckoutPage: React.FC<CheckoutPageProps> = ({ planName, planPrice, priceId, clinicId, userEmail, onPaymentSuccess, onBack, onDevPass }) => {
+const CheckoutPage: React.FC<CheckoutPageProps> = ({ planName, planPrice, priceId: _priceId, clinicId, userEmail, onPaymentSuccess, onBack, onDevPass: _onDevPass }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState('');
