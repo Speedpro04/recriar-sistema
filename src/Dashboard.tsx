@@ -729,6 +729,7 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
                   </div>
                 </div>
               </motion.div>
+            )}
             {/* VIEW: SETTINGS (CONFIGURAÇÕES) */}
             {activeTab === 'settings' && (
               <motion.div key="settings" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
