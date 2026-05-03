@@ -3,3 +3,9 @@ nixPkgs = ["nodejs_22"]
 
 [phases.install]
 cmds = ["rm -rf node_modules", "npm cache clean --force", "npm install"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[variables]
+NIXPACKS_STATIC_DIR = "dist"
