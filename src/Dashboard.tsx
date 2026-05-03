@@ -8,7 +8,8 @@ import {
   BarChart3, PieChart, DollarSign,
   UserX, Heart, X, Check, MapPin,
   Stethoscope, UserPlus, AlertCircle, Printer,
-  MessageSquare, FileText, Zap, UserCog, Send, Star
+  MessageSquare, FileText, Zap, UserCog, Send, Star,
+  CheckCircle2, Target, Trash2
 } from 'lucide-react';
 import Logo from './Logo';
 import { supabase } from './lib/supabase';
@@ -18,6 +19,10 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showModal, setShowModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showSolara, setShowSolara] = useState(false);
+  const [solaraMessages, setSolaraMessages] = useState<any[]>([
+    { role: 'assistant', content: 'Olá! Sou a Solara, sua assistente de IA. Como posso ajudar sua clínica hoje?' }
+  ]);
   
   // Estados de Dados Reais
   const [specialistsList, setSpecialistsList] = useState<any[]>([]);
@@ -35,11 +40,14 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
     setIsLoading(true);
     try {
       const { data: specialists } = await supabase.from('specialists').select('*');
-      const { data: appointments } = await supabase.from('appointments').select('*, patients(*)').order('appointment_time', { ascending: true });
+      // Query simplificada para evitar erro 400 caso a coluna de ordenação mude
+      const { data: appointments, error: appError } = await supabase.from('appointments').select('*, patients(*)');
+      
+      if (appError) console.error('Supabase Query Error:', appError);
       if (specialists) setSpecialistsList(specialists);
       if (appointments) setAppointmentsList(appointments);
     } catch (error) {
-      console.error('Erro:', error);
+      console.error('Erro ao buscar dados:', error);
     } finally {
       setIsLoading(false);
     }
@@ -164,7 +172,12 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'linear-gradient(135deg, #130f40 0%, #2c3e50 100%)', padding: '10px 24px', borderRadius: 100, color: '#fff', boxShadow: '0 10px 20px rgba(19,15,64,0.15)', cursor: 'pointer', transition: 'transform 0.2s', border: `1px solid rgba(255,255,255,0.1)` }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>
+            <div 
+              onClick={() => setShowSolara(!showSolara)}
+              style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'linear-gradient(135deg, #130f40 0%, #2c3e50 100%)', padding: '10px 24px', borderRadius: 100, color: '#fff', boxShadow: '0 10px 20px rgba(19,15,64,0.15)', cursor: 'pointer', transition: 'transform 0.2s', border: `1px solid rgba(255,255,255,0.1)` }} 
+              onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'} 
+              onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+            >
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: colors.accent, boxShadow: `0 0 10px ${colors.accent}` }} />
               <span style={{ fontSize: '0.95rem', fontWeight: 700, letterSpacing: '1px' }}>SOLARA IA</span>
               <span style={{ fontSize: '0.7rem', color: colors.primary, background: colors.success, padding: '3px 8px', borderRadius: 10, fontWeight: 800 }}>ON</span>
@@ -716,6 +729,76 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
                   </div>
                 </div>
               </motion.div>
+            {/* VIEW: SETTINGS (CONFIGURAÇÕES) */}
+            {activeTab === 'settings' && (
+              <motion.div key="settings" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
+                
+                <div style={{ background: '#fff', borderRadius: 32, padding: 32, border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 15px 40px rgba(0,0,0,0.03)' }}>
+                  <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: colors.primary, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <Settings size={24} color={colors.accent} /> Perfil da Clínica
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: colors.textMuted, marginBottom: 8 }}>Nome da Unidade</label>
+                      <input defaultValue="Solara Connect - Matriz" style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: colors.textMuted, marginBottom: 8 }}>E-mail de Notificações</label>
+                      <input defaultValue="axoshub.solara@gmail.com" style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: colors.textMuted, marginBottom: 8 }}>Telefone Comercial</label>
+                        <input defaultValue="(11) 99999-0000" style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: colors.textMuted, marginBottom: 8 }}>CNPJ</label>
+                        <input defaultValue="00.000.000/0001-00" style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                      </div>
+                    </div>
+                    <button style={{ marginTop: 12, background: colors.primary, color: '#fff', border: 'none', padding: '14px', borderRadius: 12, fontWeight: 700, cursor: 'pointer' }}>Salvar Alterações</button>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+                  <div style={{ background: `linear-gradient(135deg, ${colors.primary} 0%, #1e1b4b 100%)`, borderRadius: 32, padding: 32, color: '#fff' }}>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <Zap size={20} color={colors.accent} /> Cérebro IA (Solara)
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>Automação de WhatsApp</div>
+                          <div style={{ fontSize: '0.75rem', opacity: 0.6 }}>IA responde agendamentos sozinha</div>
+                        </div>
+                        <div style={{ width: 44, height: 24, background: colors.success, borderRadius: 12, position: 'relative', cursor: 'pointer' }}>
+                          <div style={{ width: 18, height: 18, background: '#fff', borderRadius: '50%', position: 'absolute', right: 3, top: 3 }} />
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>Análise de Churn</div>
+                          <div style={{ fontSize: '0.75rem', opacity: 0.6 }}>Detectar pacientes em risco</div>
+                        </div>
+                        <div style={{ width: 44, height: 24, background: colors.success, borderRadius: 12, position: 'relative', cursor: 'pointer' }}>
+                          <div style={{ width: 18, height: 18, background: '#fff', borderRadius: '50%', position: 'absolute', right: 3, top: 3 }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ background: '#fff', borderRadius: 32, padding: 32, border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 15px 40px rgba(0,0,0,0.03)' }}>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: colors.primary, marginBottom: 16 }}>Personalização</h3>
+                    <div style={{ display: 'flex', gap: 12 }}>
+                      {['#130f40', '#7ed6df', '#33d9b2', '#ffda79'].map(c => (
+                        <div key={c} style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: c, border: '2px solid #fff', boxShadow: '0 4px 10px rgba(0,0,0,0.1)', cursor: 'pointer' }} />
+                      ))}
+                      <div style={{ width: 32, height: 32, borderRadius: '50%', border: '2px dashed #ccc', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>+</div>
+                    </div>
+                  </div>
+                </div>
+
+              </motion.div>
             )}
 
           </AnimatePresence>
@@ -781,6 +864,45 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
           </div>
         )}
       </AnimatePresence>
+
+      {/* FLOATING SOLARA ASSISTANT */}
+      <div style={{ position: 'fixed', bottom: 32, right: 32, zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 16 }}>
+        <AnimatePresence>
+          {showSolara && (
+            <motion.div initial={{ opacity: 0, y: 20, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.9 }} style={{ width: 350, height: 500, background: '#fff', borderRadius: 28, boxShadow: '0 25px 60px -12px rgba(19, 15, 64, 0.4)', border: '1px solid rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <div style={{ background: colors.primary, padding: '24px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 40, height: 40, background: colors.accent, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Zap size={24} color={colors.primary} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '1rem' }}>Solara AI</div>
+                    <div style={{ fontSize: '0.7rem', color: colors.success, fontWeight: 700 }}>Online e Atenta</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => setSolaraMessages([{ role: 'assistant', content: 'Conversa limpa. Como posso ajudar?' }])} title="Limpar Conversa" style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 8, padding: 8, cursor: 'pointer', color: '#fff' }}><Trash2 size={16} /></button>
+                  <button onClick={() => setShowSolara(false)} title="Fechar" style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 8, padding: 8, cursor: 'pointer', color: '#fff' }}><X size={16} /></button>
+                </div>
+              </div>
+              
+              <div style={{ flex: 1, padding: 20, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, background: '#f8fafc' }}>
+                {solaraMessages.map((m, i) => (
+                  <div key={i} style={{ alignSelf: m.role === 'assistant' ? 'flex-start' : 'flex-end', background: m.role === 'assistant' ? '#fff' : colors.primary, color: m.role === 'assistant' ? colors.primary : '#fff', padding: '12px 16px', borderRadius: m.role === 'assistant' ? '0 16px 16px 16px' : '16px 16px 0 16px', fontSize: '0.9rem', maxWidth: '85%', boxShadow: '0 4px 10px rgba(0,0,0,0.02)', border: m.role === 'assistant' ? '1px solid rgba(0,0,0,0.05)' : 'none' }}>
+                    {m.content}
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ padding: 16, borderTop: '1px solid rgba(0,0,0,0.05)', background: '#fff', display: 'flex', gap: 10 }}>
+                <input placeholder="Digite sua dúvida..." style={{ flex: 1, padding: '12px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', fontSize: '0.9rem' }} />
+                <button style={{ background: colors.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '12px', cursor: 'pointer' }}><Send size={20} /></button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+      </div>
 
     </div>
   );
