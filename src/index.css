@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
 :root {
   --primary: #130f40;
   --bg-main: #ffffff;
@@ -18,8 +20,6 @@
   --radius: 16px;
   --shadow: 0 8px 30px rgba(19, 15, 64, 0.1);
 }
-
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
 * {
   box-sizing: border-box;
