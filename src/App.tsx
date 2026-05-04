@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Dashboard from './Dashboard';
 import LandingPage from './LandingPage';
 import LoginPage from './LoginPage';
 import RegisterPage from './RegisterPage';
 import CheckoutPage from './CheckoutPage';
-import { logoutUser } from './lib/auth';
+import { logoutUser, getCurrentSession } from './lib/auth';
+import { supabase } from './lib/supabase';
 import './index.css';
 
-type ViewState = 'landing' | 'login' | 'register' | 'checkout' | 'dashboard';
+type ViewState = 'landing' | 'login' | 'register' | 'checkout' | 'dashboard' | 'loading';
 
 interface SelectedPlan {
   name: string;
@@ -17,7 +18,7 @@ interface SelectedPlan {
 }
 
 function App() {
-  const [view, setView] = useState<ViewState>('landing');
+  const [view, setView] = useState<ViewState>('loading');
   const [selectedPlan, setSelectedPlan] = useState<SelectedPlan>({ 
     name: 'Avançado', 
     price: '597', 
@@ -27,6 +28,45 @@ function App() {
   const [clinicId, setClinicId] = useState('');
   const [userEmail, setUserEmail] = useState('');
 
+  // Restaurar sessão ao carregar a página
+  useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        const session = await getCurrentSession();
+        if (session?.user) {
+          // Buscar clinicId do usuário logado
+          const { data: userProfile } = await supabase
+            .from('users')
+            .select('clinic_id')
+            .eq('auth_id', session.user.id)
+            .single();
+
+          if (userProfile?.clinic_id) {
+            setClinicId(userProfile.clinic_id);
+            setUserEmail(session.user.email || '');
+            setView('dashboard');
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Nenhuma sessão ativa:', err);
+      }
+      setView('landing');
+    };
+
+    restoreSession();
+
+    // Escutar mudanças de autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        setClinicId('');
+        setUserEmail('');
+        setView('landing');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleDevPass = () => {
     setClinicId('dev-clinic-123');
@@ -60,6 +100,34 @@ function App() {
     setUserEmail('');
     setView('landing');
   };
+
+  // Loading screen enquanto verifica sessão
+  if (view === 'loading') {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        minHeight: '100vh', 
+        backgroundColor: '#0a0822',
+        fontFamily: "'Outfit', sans-serif"
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ 
+            width: 48, 
+            height: 48, 
+            border: '3px solid rgba(126, 214, 223, 0.2)', 
+            borderTop: '3px solid #7ed6df', 
+            borderRadius: '50%', 
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 20px'
+          }} />
+          <p style={{ color: '#7ed6df', fontWeight: 600, fontSize: '1rem' }}>Carregando Solara Connect...</p>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="App">
@@ -108,7 +176,7 @@ function App() {
 
       {/* ======= DASHBOARD ======= */}
       {view === 'dashboard' && (
-        <Dashboard onLogout={handleLogout} />
+        <Dashboard onLogout={handleLogout} clinicId={clinicId} />
       )}
     </div>
   );

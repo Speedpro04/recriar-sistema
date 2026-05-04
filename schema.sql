@@ -69,6 +69,7 @@ CREATE TABLE users (
         CHECK (role IN ('owner', 'admin', 'doctor', 'receptionist', 'staff')),
     specialty TEXT,  -- para médicos
     crm TEXT,        -- registro profissional
+    phone TEXT,      -- WhatsApp/telefone de emergência
     avatar_url TEXT,
     active BOOLEAN DEFAULT true,
     last_login TIMESTAMPTZ,
@@ -272,15 +273,27 @@ CREATE POLICY "clinics_member_read" ON clinics FOR SELECT USING (
 -- Service role bypass para cadastro (quando o usuário ainda não tem clínica)
 CREATE POLICY "clinics_insert_authenticated" ON clinics FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
--- USERS: Isolamento por clínica
+-- USERS: Isolamento por clínica (sem recursão)
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "users_same_clinic" ON users FOR SELECT USING (
-    clinic_id IN (SELECT clinic_id FROM users u WHERE u.auth_id = auth.uid())
+CREATE POLICY "users_read_own" ON users FOR SELECT USING (
+    auth_id = auth.uid()
+    OR clinic_id IN (
+        SELECT id FROM clinics WHERE owner_auth_id = auth.uid()
+    )
 );
-CREATE POLICY "users_owner_manage" ON users FOR ALL USING (
-    EXISTS (SELECT 1 FROM users u WHERE u.clinic_id = users.clinic_id AND u.auth_id = auth.uid() AND u.role IN ('owner', 'admin'))
+CREATE POLICY "users_insert_auth" ON users FOR INSERT WITH CHECK (
+    auth.uid() IS NOT NULL
 );
-CREATE POLICY "users_self_insert" ON users FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "users_owner_manage" ON users FOR UPDATE USING (
+    clinic_id IN (
+        SELECT id FROM clinics WHERE owner_auth_id = auth.uid()
+    )
+);
+CREATE POLICY "users_owner_delete" ON users FOR DELETE USING (
+    clinic_id IN (
+        SELECT id FROM clinics WHERE owner_auth_id = auth.uid()
+    )
+);
 
 -- PATIENTS: Isolamento por clínica
 ALTER TABLE patients ENABLE ROW LEVEL SECURITY;

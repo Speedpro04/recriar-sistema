@@ -73,7 +73,22 @@ export async function registerClinic(data: RegisterData): Promise<{ userId: stri
     }
   });
 
-  if (authError) throw new Error(`Erro ao criar conta: ${authError.message}`);
+  if (authError) {
+    // Traduzir erros comuns do Supabase para português
+    if (authError.message.includes('rate limit') || authError.message.includes('email rate')) {
+      throw new Error('Muitas tentativas de cadastro. Aguarde alguns minutos e tente novamente.');
+    }
+    if (authError.message.includes('already registered') || authError.message.includes('already been registered')) {
+      throw new Error('Este e-mail já está cadastrado. Tente fazer login ou recupere sua senha.');
+    }
+    if (authError.message.includes('invalid email')) {
+      throw new Error('O e-mail informado não é válido.');
+    }
+    if (authError.message.includes('weak password') || authError.message.includes('at least')) {
+      throw new Error('A senha precisa ter pelo menos 6 caracteres.');
+    }
+    throw new Error(`Erro ao criar conta: ${authError.message}`);
+  }
   if (!authData.user) throw new Error('Falha ao criar usuário');
 
   const authUserId = authData.user.id;
@@ -113,7 +128,15 @@ export async function loginUser(data: LoginData): Promise<SessionUser> {
     password: data.password
   });
 
-  if (authError) throw new Error(`Credenciais inválidas: ${authError.message}`);
+  if (authError) {
+    if (authError.message.includes('Invalid login') || authError.message.includes('invalid_credentials')) {
+      throw new Error('E-mail ou senha incorretos. Verifique e tente novamente.');
+    }
+    if (authError.message.includes('Email not confirmed')) {
+      throw new Error('Confirme seu e-mail antes de fazer login. Verifique sua caixa de entrada.');
+    }
+    throw new Error(`Erro no login: ${authError.message}`);
+  }
   if (!authData.user) throw new Error('Falha no login');
 
   // Buscar perfil do usuário

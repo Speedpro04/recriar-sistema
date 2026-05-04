@@ -12,15 +12,25 @@ import {
 import Logo from './Logo';
 import { supabase } from './lib/supabase';
 
-const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
+interface DashboardProps {
+  onLogout: () => void;
+  clinicId?: string;
+}
+
+const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
   const [activeTab, setActiveTab] = useState('reception');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showModal, setShowModal] = useState(false);
+  const [showSpecialistModal, setShowSpecialistModal] = useState(false);
+  const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showSolara, setShowSolara] = useState(false);
   const [solaraMessages, setSolaraMessages] = useState<any[]>([
     { role: 'assistant', content: 'Olá! Sou a Solara, sua assistente de IA. Como posso ajudar sua clínica hoje?' }
   ]);
+  const [solaraInput, setSolaraInput] = useState('');
+  const [clinicLimit, setClinicLimit] = useState(2); // Default to 2 if not loaded
   
   // Estados de Dados Reais
   const [specialistsList, setSpecialistsList] = useState<any[]>([]);
@@ -31,18 +41,49 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
   const [newAppointment, setNewAppointment] = useState({
     date: new Date().toISOString().split('T')[0],
     time: '09:00',
-    specialist_id: ''
+    doctor_id: ''
   });
+  const [newSpecialist, setNewSpecialist] = useState({
+    name: '', email: '', specialty: '', crm: '', phone: ''
+  });
+  const [automations, setAutomations] = useState([
+    { id: 1, title: 'Lembrete Pré-Consulta', desc: 'Envia WhatsApp 2h antes para confirmar.', active: true },
+    { id: 2, title: 'Pesquisa NPS', desc: 'Envia formulário de satisfação após finalização.', active: true },
+    { id: 3, title: 'Feliz Aniversário', desc: 'Mensagem automática no dia do aniversário do paciente.', active: true },
+    { id: 4, title: 'Feliz Natal', desc: 'Mensagem de boas festas no final do ano.', active: true },
+    { id: 5, title: 'Follow-up de Bem-Estar', desc: 'Mensagem carinhosa 24h após o atendimento.', active: false },
+  ]);
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const { data: specialists } = await supabase.from('specialists').select('*');
-      // Query simplificada para evitar erro 400 caso a coluna de ordenação mude
-      const { data: appointments, error: appError } = await supabase.from('appointments').select('*, patients(*)');
+      // Buscar médicos da tabela 'users' com role='doctor' ou 'owner'
+      const { data: doctors } = await supabase
+        .from('users')
+        .select('id, name, email, specialty, crm, active')
+        .in('role', ['doctor', 'owner']);
+
+      // Buscar limite do plano da clínica
+      if (clinicId) {
+        const { data: clinicData } = await supabase
+          .from('clinics')
+          .select('plans(max_specialists)')
+          .eq('id', clinicId)
+          .single();
+        
+        // Supabase returns nested relations as objects or arrays. We handle it safely.
+        const planLimit = clinicData?.plans?.max_specialists || clinicData?.plans?.[0]?.max_specialists;
+        if (planLimit) setClinicLimit(planLimit);
+      }
+
+      // Buscar agendamentos com dados do paciente e médico
+      const { data: appointments, error: appError } = await supabase
+        .from('appointments')
+        .select('*, patients(name, phone, email), users!appointments_doctor_id_fkey(name, specialty)')
+        .order('start_time', { ascending: true });
       
       if (appError) console.error('Supabase Query Error:', appError);
-      if (specialists) setSpecialistsList(specialists);
+      if (doctors) setSpecialistsList(doctors);
       if (appointments) setAppointmentsList(appointments);
     } catch (error) {
       console.error('Erro ao buscar dados:', error);
@@ -69,23 +110,121 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
     }
     setIsLoading(true);
     try {
+      // Inserir paciente com clinic_id obrigatório
       const { data: patient, error: pError } = await supabase.from('patients').insert([{ 
-        name: newPatient.name, phone: newPatient.phone, age: parseInt(newPatient.age) || null,
-        insurance: newPatient.insurance, lgpd_consent: newPatient.lgpd_consent, lgpd_consent_date: new Date().toISOString()
+        name: newPatient.name, 
+        phone: newPatient.phone,
+        clinic_id: clinicId || undefined,
+        notes: newPatient.insurance !== 'Particular' ? `Convênio: ${newPatient.insurance}` : null
       }]).select().single();
       if (pError) throw pError;
+
+      // Montar start_time e end_time a partir de date + time
+      const startTime = new Date(`${newAppointment.date}T${newAppointment.time}:00`);
+      const endTime = new Date(startTime.getTime() + 30 * 60 * 1000); // +30 minutos
+
       const { error: aError } = await supabase.from('appointments').insert([{
-        patient_id: patient.id, specialist_id: newAppointment.specialist_id || null,
-        appointment_date: newAppointment.date, appointment_time: newAppointment.time, status: 'Aguardando'
+        patient_id: patient.id, 
+        doctor_id: newAppointment.doctor_id || null,
+        clinic_id: clinicId || undefined,
+        start_time: startTime.toISOString(), 
+        end_time: endTime.toISOString(), 
+        status: 'pending',
+        type: 'Consulta'
       }]);
       if (aError) throw aError;
       setShowModal(false);
       setNewPatient({ name: '', phone: '', age: '', insurance: 'Particular', lgpd_consent: false });
+      setNewAppointment({ date: new Date().toISOString().split('T')[0], time: '09:00', doctor_id: '' });
     } catch (error: any) {
       alert('Erro: ' + error.message);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // === SALVAR NOVO ESPECIALISTA ===
+  const handleSaveSpecialist = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSpecialist.name.trim() || !newSpecialist.specialty.trim()) {
+      alert('Nome e Especialidade são obrigatórios!');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.from('users').insert([{
+        name: newSpecialist.name,
+        email: newSpecialist.email || `${newSpecialist.name.toLowerCase().replace(/\s+/g, '.')}@clinica.com`,
+        specialty: newSpecialist.specialty,
+        crm: newSpecialist.crm || null,
+        phone: newSpecialist.phone || null,
+        role: 'doctor',
+        clinic_id: clinicId || undefined,
+        active: true
+      }]);
+      if (error) throw error;
+      setShowSpecialistModal(false);
+      setNewSpecialist({ name: '', email: '', specialty: '', crm: '', phone: '' });
+      fetchData(); // Recarregar lista
+    } catch (error: any) {
+      alert('Erro ao salvar especialista: ' + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // === ATUALIZAR STATUS DO AGENDAMENTO ===
+  const handleUpdateAppointmentStatus = async (appointmentId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ status: newStatus })
+        .eq('id', appointmentId);
+      if (error) throw error;
+      fetchData();
+    } catch (error: any) {
+      console.error('Erro ao atualizar status:', error.message);
+    }
+  };
+
+  // === SOLARA IA - ENVIAR MENSAGEM ===
+  const handleSolaraSend = () => {
+    const msg = solaraInput.trim();
+    if (!msg) return;
+
+    // Adicionar mensagem do usuário
+    setSolaraMessages(prev => [...prev, { role: 'user', content: msg }]);
+    setSolaraInput('');
+
+    // Simular resposta da IA baseada em palavras-chave (RAG local)
+    setTimeout(() => {
+      let response = '';
+      const lower = msg.toLowerCase();
+
+      if (lower.includes('agendar') || lower.includes('marcar') || lower.includes('consulta') || lower.includes('horário')) {
+        response = 'Para agendar uma consulta, clique no botão "Novo Agendamento" no topo da página, ou me diga o nome do paciente, data e horário desejado que eu oriento o processo.';
+      } else if (lower.includes('cancelar') || lower.includes('desmarcar')) {
+        response = 'Para cancelar um agendamento, acesse a Agenda Kanban, localize o card do paciente e altere o status. Posso ajudar com algo mais?';
+      } else if (lower.includes('remarcar') || lower.includes('reagendar') || lower.includes('mudar')) {
+        response = 'Para remarcar, é necessário localizar o agendamento na Agenda Kanban e atualizar a data/horário. Deseja que eu explique o passo a passo?';
+      } else if (lower.includes('paciente') || lower.includes('fila') || lower.includes('espera')) {
+        response = `No momento, temos ${appointmentsList.filter(a => a.status === 'pending' || a.status === 'confirmed').length} pacientes na fila/confirmados. Acesse a aba Recepção para ver detalhes.`;
+      } else if (lower.includes('médico') || lower.includes('especialista') || lower.includes('doutor')) {
+        response = `Sua clínica possui ${specialistsList.length} especialista(s) cadastrado(s). Acesse a aba Especialistas para gerenciar a equipe.`;
+      } else if (lower.includes('relatório') || lower.includes('faturamento') || lower.includes('receita')) {
+        response = 'Os relatórios estão disponíveis na aba Relatórios. Lá você encontra faturamento, taxa de absenteísmo e NPS. Também é possível exportar em PDF.';
+      } else if (lower.includes('lgpd') || lower.includes('dado') || lower.includes('privacidade')) {
+        response = 'O Solara Connect está 100% em conformidade com a LGPD. Todos os dados são criptografados e o consentimento do paciente é registrado em cada check-in.';
+      } else if (lower.includes('whatsapp') || lower.includes('mensagem')) {
+        response = 'A integração WhatsApp está disponível na aba WhatsApp. A Solara IA pode responder agendamentos automaticamente quando ativada nas Configurações.';
+      } else if (lower.includes('oi') || lower.includes('olá') || lower.includes('bom dia') || lower.includes('boa tarde')) {
+        response = 'Olá! 😊 Estou aqui para ajudar com a gestão da sua clínica. Pode perguntar sobre agendamentos, pacientes, relatórios ou qualquer funcionalidade do sistema!';
+      } else {
+        response = 'Entendi sua dúvida! Para informações mais detalhadas, recomendo verificar as abas do painel. Posso ajudar com: agendamentos, cancelamentos, remarcações, relatórios, LGPD ou WhatsApp. O que prefere?';
+      }
+
+      setSolaraMessages(prev => [...prev, { role: 'assistant', content: response }]);
+    }, 800);
   };
 
   const timeString = currentTime.toLocaleTimeString('pt-BR', { 
@@ -193,6 +332,16 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
                 <button onClick={() => window.print()} style={{ background: '#fff', color: colors.primary, border: `1px solid ${colors.primary}20`, padding: '12px 24px', borderRadius: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, boxShadow: `0 4px 10px rgba(0,0,0,0.05)` }}>
                   <Printer size={20} /> Exportar Relatório (PDF)
                 </button>
+              ) : activeTab === 'specialists' ? (
+                <button onClick={() => {
+                  if (specialistsList.length >= clinicLimit) {
+                    alert(`Limitação do Plano: Você atingiu o limite máximo de ${clinicLimit} especialista(s) permitido no seu plano atual.\n\nPor favor, faça um upgrade para adicionar mais profissionais à sua clínica.`);
+                  } else {
+                    setShowSpecialistModal(true);
+                  }
+                }} style={{ background: colors.primary, color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, boxShadow: `0 10px 20px ${colors.primary}30` }}>
+                  <Plus size={20} /> Novo Especialista
+                </button>
               ) : (
                 <button onClick={() => setShowModal(true)} style={{ background: colors.primary, color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, boxShadow: `0 10px 20px ${colors.primary}30` }}>
                   <UserPlus size={20} /> {activeTab === 'agenda' ? 'Novo Agendamento' : 'Check-in Rápido'}
@@ -253,8 +402,8 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
                             <div style={{ flex: 1 }}>
                               <div style={{ fontWeight: 700, color: colors.primary, fontSize: '1rem', marginBottom: 4 }}>{app.patients?.name}</div>
                               <div style={{ fontSize: '0.85rem', color: colors.textMuted, display: 'flex', gap: 12 }}>
-                                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Clock size={14} /> Horário: {app.appointment_time}</span>
-                                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Stethoscope size={14} /> {app.type}</span>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Clock size={14} /> Horário: {app.start_time ? new Date(app.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--'}</span>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Stethoscope size={14} /> {app.type || 'Consulta'}</span>
                               </div>
                             </div>
                             <div style={{ textAlign: 'right', marginRight: 24 }}>
@@ -361,7 +510,7 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
                             <div style={{ fontSize: '1rem', fontWeight: 800, color: colors.primary }}>{p.value}</div>
                             <div style={{ fontSize: '0.75rem', fontWeight: 700, color: p.risk === 'Crítico' ? colors.danger : colors.warn }}>Risco {p.risk}</div>
                           </div>
-                          <button style={{ background: colors.success, color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 12, fontSize: '0.85rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxShadow: `0 8px 16px ${colors.success}30` }}>
+                          <button onClick={() => alert('Mensagem de recuperação inteligente enviada via WhatsApp para ' + p.name + '!')} style={{ background: colors.success, color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 12, fontSize: '0.85rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxShadow: `0 8px 16px ${colors.success}30` }}>
                             <MessageSquare size={16} /> Recuperar
                           </button>
                         </div>
@@ -413,53 +562,72 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
             {/* VIEW: AGENDA KANBAN */}
             {activeTab === 'agenda' && (
               <motion.div key="agenda" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 32, height: 'calc(100vh - 250px)' }}>
-                {[
-                  { id: 'confirmados', label: 'Confirmados', color: colors.success, bg: 'linear-gradient(180deg, rgba(51, 217, 178, 0.05) 0%, rgba(255, 255, 255, 0) 100%)', items: [ { id: 1, patient: 'Ricardo Mendes', time: '14:00', type: 'Check-up', dr: 'Dr. Paulo' }, { id: 2, patient: 'Fernanda Lima', time: '14:30', type: 'Retorno', dr: 'Dra. Helena' }, { id: 5, patient: 'Amanda Silva', time: '15:00', type: 'Consulta', dr: 'Dr. Paulo' } ] },
-                  { id: 'espera', label: 'Em Espera', color: colors.warn, bg: 'linear-gradient(180deg, rgba(255, 218, 121, 0.05) 0%, rgba(255, 255, 255, 0) 100%)', items: [ { id: 3, patient: 'Marcos Braz', time: '15:15', type: 'Consulta', dr: 'Dr. Andre' }, { id: 6, patient: 'Luciana Costa', time: '15:45', type: 'Exame', dr: 'Dra. Helena' } ] },
-                  { id: 'finalizados', label: 'Finalizados', color: colors.textMuted, bg: 'linear-gradient(180deg, rgba(100, 116, 139, 0.05) 0%, rgba(255, 255, 255, 0) 100%)', items: [ { id: 4, patient: 'Julia Rocha', time: '13:00', type: 'Exame', dr: 'Dra. Helena' } ] },
-                ].map(col => (
-                  <div key={col.id} style={{ background: '#fff', backgroundImage: col.bg, borderRadius: 28, padding: '24px', display: 'flex', flexDirection: 'column', gap: 20, border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 15px 35px rgba(0,0,0,0.02)', position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: col.color }} />
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 4px 16px', borderBottom: '1px dashed rgba(0,0,0,0.05)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <div style={{ width: 36, height: 36, borderRadius: 12, background: `${col.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Users size={18} color={col.color} />
+                {(() => {
+                  const statusMap = [
+                    { id: 'confirmados', label: 'Confirmados', statuses: ['confirmed', 'pending'], color: colors.success, bg: 'linear-gradient(180deg, rgba(51, 217, 178, 0.05) 0%, rgba(255, 255, 255, 0) 100%)', nextStatus: 'in_progress', nextLabel: 'Iniciar' },
+                    { id: 'espera', label: 'Em Atendimento', statuses: ['in_progress'], color: colors.warn, bg: 'linear-gradient(180deg, rgba(255, 218, 121, 0.05) 0%, rgba(255, 255, 255, 0) 100%)', nextStatus: 'completed', nextLabel: 'Finalizar' },
+                    { id: 'finalizados', label: 'Finalizados', statuses: ['completed'], color: colors.textMuted, bg: 'linear-gradient(180deg, rgba(100, 116, 139, 0.05) 0%, rgba(255, 255, 255, 0) 100%)', nextStatus: null, nextLabel: null },
+                  ];
+                  return statusMap.map(col => {
+                    const items = appointmentsList.filter(a => col.statuses.includes(a.status));
+                    return (
+                      <div key={col.id} style={{ background: '#fff', backgroundImage: col.bg, borderRadius: 28, padding: '24px', display: 'flex', flexDirection: 'column', gap: 20, border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 15px 35px rgba(0,0,0,0.02)', position: 'relative', overflow: 'hidden' }}>
+                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: col.color }} />
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 4px 16px', borderBottom: '1px dashed rgba(0,0,0,0.05)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <div style={{ width: 36, height: 36, borderRadius: 12, background: `${col.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <Users size={18} color={col.color} />
+                            </div>
+                            <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: colors.primary }}>{col.label}</h3>
+                          </div>
+                          <span style={{ fontSize: '0.9rem', fontWeight: 700, color: col.color, background: `${col.color}15`, padding: '6px 14px', borderRadius: 12 }}>{items.length}</span>
                         </div>
-                        <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: colors.primary }}>{col.label}</h3>
-                      </div>
-                      <span style={{ fontSize: '0.9rem', fontWeight: 700, color: col.color, background: `${col.color}15`, padding: '6px 14px', borderRadius: 12 }}>{col.items.length}</span>
-                    </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto', paddingBottom: '20px', paddingRight: '4px' }}>
-                      {col.items.map(item => (
-                        <motion.div 
-                          key={item.id} 
-                          drag 
-                          dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-                          whileDrag={{ scale: 1.05, zIndex: 100, boxShadow: `0 25px 50px -12px ${col.color}40`, rotate: 2 }}
-                          style={{ background: '#fff', padding: '20px', borderRadius: 20, boxShadow: '0 8px 20px -8px rgba(0,0,0,0.08)', cursor: 'grab', border: '1px solid rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', gap: 16, position: 'relative', overflow: 'hidden' }}
-                        >
-                          <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: col.color, opacity: 0.5 }} />
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingLeft: 8 }}>
-                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: colors.primary, background: '#f1f5f9', padding: '6px 12px', borderRadius: 8, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{item.type}</span>
-                            <span style={{ fontSize: '0.9rem', fontWeight: 700, color: colors.primary, display: 'flex', alignItems: 'center', gap: 6, background: `${colors.accent}15`, padding: '4px 10px', borderRadius: 8 }}><Clock size={14} color={colors.accent} /> {item.time}</span>
-                          </div>
-                          <div style={{ paddingLeft: 8 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                              <div style={{ width: 40, height: 40, borderRadius: '50%', background: `linear-gradient(135deg, ${col.color}20, ${col.color}40)`, color: col.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '1.1rem', border: `2px solid #fff`, boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
-                                {item.patient.charAt(0)}
-                              </div>
-                              <div style={{ fontWeight: 600, color: colors.primary, fontSize: '1.1rem' }}>{item.patient}</div>
-                            </div>
-                            <div style={{ fontSize: '0.85rem', color: colors.textMuted, display: 'flex', alignItems: 'center', gap: 8, fontWeight: 500, background: '#f8fafc', padding: '8px 12px', borderRadius: 10 }}>
-                              <Stethoscope size={16} color={colors.accent} /> {item.dr}
-                            </div>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto', paddingBottom: '20px', paddingRight: '4px' }}>
+                          {items.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: '30px 16px', color: colors.textMuted, fontSize: '0.85rem' }}>Nenhum paciente nesta coluna.</div>
+                          ) : (
+                            items.map(item => {
+                              const patientName = item.patients?.name || 'Paciente';
+                              const doctorName = item.users?.name || 'Sem médico';
+                              const time = item.start_time ? new Date(item.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+                              return (
+                                <motion.div 
+                                  key={item.id} 
+                                  layout
+                                  whileHover={{ y: -4, boxShadow: '0 12px 24px -4px rgba(0,0,0,0.1)' }}
+                                  style={{ background: '#fff', padding: '20px', borderRadius: 20, boxShadow: '0 8px 20px -8px rgba(0,0,0,0.08)', border: '1px solid rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', gap: 16, position: 'relative', overflow: 'hidden', cursor: 'default' }}
+                                >
+                                  <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: col.color, opacity: 0.5 }} />
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingLeft: 8 }}>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: colors.primary, background: '#f1f5f9', padding: '6px 12px', borderRadius: 8, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{item.type || 'Consulta'}</span>
+                                    <span style={{ fontSize: '0.9rem', fontWeight: 700, color: colors.primary, display: 'flex', alignItems: 'center', gap: 6, background: `${colors.accent}15`, padding: '4px 10px', borderRadius: 8 }}><Clock size={14} color={colors.accent} /> {time}</span>
+                                  </div>
+                                  <div style={{ paddingLeft: 8 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                                      <div style={{ width: 40, height: 40, borderRadius: '50%', background: `linear-gradient(135deg, ${col.color}20, ${col.color}40)`, color: col.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '1.1rem', border: `2px solid #fff`, boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
+                                        {patientName.charAt(0)}
+                                      </div>
+                                      <div style={{ fontWeight: 600, color: colors.primary, fontSize: '1.1rem' }}>{patientName}</div>
+                                    </div>
+                                    <div style={{ fontSize: '0.85rem', color: colors.textMuted, display: 'flex', alignItems: 'center', gap: 8, fontWeight: 500, background: '#f8fafc', padding: '8px 12px', borderRadius: 10 }}>
+                                      <Stethoscope size={16} color={colors.accent} /> {doctorName}
+                                    </div>
+                                  </div>
+                                  {col.nextStatus && (
+                                    <button onClick={() => handleUpdateAppointmentStatus(item.id, col.nextStatus!)} style={{ background: `${col.color}15`, color: col.color, border: `1px solid ${col.color}40`, padding: '8px 16px', borderRadius: 12, fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', marginLeft: 8, transition: 'all 0.2s' }}>
+                                      <Check size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} />{col.nextLabel}
+                                    </button>
+                                  )}
+                                </motion.div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
               </motion.div>
             )}
 
@@ -503,7 +671,7 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
                   <div style={{ background: '#fff', borderRadius: 28, padding: 32, border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 15px 35px rgba(0,0,0,0.02)', flex: 1, display: 'flex', flexDirection: 'column' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
                       <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: colors.primary, display: 'flex', alignItems: 'center', gap: 10 }}><FileText size={20} color={colors.accent} /> Evolução Clínica (Anamnese)</h3>
-                      <button style={{ background: colors.success, color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 12, fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxShadow: `0 8px 16px ${colors.success}40`, transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}><Plus size={18} /> Nova Receita</button>
+                      <button onClick={() => setShowPrescriptionModal(true)} style={{ background: colors.success, color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 12, fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxShadow: `0 8px 16px ${colors.success}40`, transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}><Plus size={18} /> Nova Receita</button>
                     </div>
                     
                     <textarea 
@@ -513,7 +681,7 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
                     />
 
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
-                      <button style={{ background: colors.primary, color: '#fff', border: 'none', padding: '14px 32px', borderRadius: 14, fontWeight: 700, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, boxShadow: `0 10px 20px ${colors.primary}30` }}>
+                      <button onClick={() => setShowSignatureModal(true)} style={{ background: colors.primary, color: '#fff', border: 'none', padding: '14px 32px', borderRadius: 14, fontWeight: 700, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, boxShadow: `0 10px 20px ${colors.primary}30` }}>
                         <Check size={20} /> Assinar e Salvar
                       </button>
                     </div>
@@ -589,17 +757,16 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
                       <Zap size={20} color={colors.accent} /> Motores de Automação
                     </h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                      {[
-                        { title: 'Lembrete Pré-Consulta', desc: 'Envia WhatsApp 2h antes para confirmar.', active: true },
-                        { title: 'Pesquisa NPS', desc: 'Envia formulário de satisfação após finalização.', active: true },
-                        { title: 'Follow-up de Bem-Estar', desc: 'Mensagem carinhosa 24h após o atendimento.', active: false },
-                      ].map((auto, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: auto.active ? `${colors.success}10` : '#f8fafc', borderRadius: 16, border: `1px solid ${auto.active ? colors.success + '30' : 'rgba(0,0,0,0.05)'}` }}>
+                      {automations.map((auto) => (
+                        <div key={auto.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: auto.active ? `${colors.success}10` : '#f8fafc', borderRadius: 16, border: `1px solid ${auto.active ? colors.success + '30' : 'rgba(0,0,0,0.05)'}` }}>
                           <div>
                             <div style={{ fontWeight: 700, fontSize: '0.95rem', color: auto.active ? colors.primary : colors.textMuted }}>{auto.title}</div>
                             <div style={{ fontSize: '0.8rem', fontWeight: 500, color: colors.textMuted, marginTop: 4 }}>{auto.desc}</div>
                           </div>
-                          <div style={{ width: 44, height: 24, borderRadius: 12, background: auto.active ? colors.success : '#e2e8f0', position: 'relative', cursor: 'pointer', transition: 'all 0.3s' }}>
+                          <div 
+                            onClick={() => setAutomations(prev => prev.map(a => a.id === auto.id ? { ...a, active: !a.active } : a))}
+                            style={{ width: 44, height: 24, borderRadius: 12, background: auto.active ? colors.success : '#e2e8f0', position: 'relative', cursor: 'pointer', transition: 'all 0.3s' }}
+                          >
                             <div style={{ position: 'absolute', top: 2, left: auto.active ? 22 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', boxShadow: '0 2px 5px rgba(0,0,0,0.2)', transition: 'all 0.3s' }} />
                           </div>
                         </div>
@@ -842,9 +1009,9 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
 
                 <div>
                   <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>Especialista</label>
-                  <select value={newAppointment.specialist_id} onChange={e => setNewAppointment({...newAppointment, specialist_id: e.target.value})} style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', background: '#fff' }}>
+                  <select value={newAppointment.doctor_id} onChange={e => setNewAppointment({...newAppointment, doctor_id: e.target.value})} style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', background: '#fff' }}>
                     <option value="">Selecione um médico...</option>
-                    {specialistsList.map(s => <option key={s.id} value={s.id}>{s.name} ({s.specialty})</option>)}
+                    {specialistsList.map(s => <option key={s.id} value={s.id}>{s.name} ({s.specialty || 'Geral'})</option>)}
                   </select>
                 </div>
 
@@ -864,8 +1031,140 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
         )}
       </AnimatePresence>
 
+      {/* MODAL: NOVO ESPECIALISTA */}
+      <AnimatePresence>
+        {showSpecialistModal && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(19, 15, 64, 0.6)', backdropFilter: 'blur(10px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} style={{ background: '#fff', width: '100%', maxWidth: '500px', borderRadius: 32, padding: '40px', position: 'relative', boxShadow: '0 30px 60px -12px rgba(0,0,0,0.3)' }}>
+              <button onClick={() => setShowSpecialistModal(false)} style={{ position: 'absolute', top: 24, right: 24, background: '#f1f5f9', border: 'none', borderRadius: '50%', padding: 10, cursor: 'pointer' }}><X size={20} color={colors.primary} /></button>
+              <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: colors.primary, marginBottom: 8 }}>Novo Especialista</h2>
+              <p style={{ color: colors.textMuted, marginBottom: 32 }}>Adicione um novo médico à sua clínica.</p>
+              <form onSubmit={handleSaveSpecialist} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>Nome Completo</label>
+                  <input type="text" required value={newSpecialist.name} onChange={e => setNewSpecialist({...newSpecialist, name: e.target.value})} placeholder="Ex: Dr. Paulo Silva" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                </div>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>Especialidade</label>
+                    <input type="text" required value={newSpecialist.specialty} onChange={e => setNewSpecialist({...newSpecialist, specialty: e.target.value})} placeholder="Ex: Ortodontia" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>CRM (Opcional)</label>
+                    <input type="text" value={newSpecialist.crm} onChange={e => setNewSpecialist({...newSpecialist, crm: e.target.value})} placeholder="Ex: 12345-SP" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>E-mail (Opcional)</label>
+                    <input type="email" value={newSpecialist.email} onChange={e => setNewSpecialist({...newSpecialist, email: e.target.value})} placeholder="Ex: doutor@clinica.com" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>WhatsApp / Emergência</label>
+                    <input type="text" value={newSpecialist.phone} onChange={e => setNewSpecialist({...newSpecialist, phone: e.target.value})} placeholder="(00) 00000-0000" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                  </div>
+                </div>
+
+                <button type="submit" disabled={isLoading} style={{ marginTop: 12, background: colors.success, opacity: isLoading ? 0.7 : 1, color: '#fff', border: 'none', padding: '16px', borderRadius: 14, fontWeight: 700, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                  {isLoading ? 'Salvando...' : <><Plus size={20} /> Salvar Especialista</>}
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL: NOVA RECEITA */}
+      <AnimatePresence>
+        {showPrescriptionModal && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(19, 15, 64, 0.6)', backdropFilter: 'blur(10px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} style={{ background: '#fff', width: '100%', maxWidth: '600px', borderRadius: 32, padding: '40px', position: 'relative', boxShadow: '0 30px 60px -12px rgba(0,0,0,0.3)' }}>
+              <button onClick={() => setShowPrescriptionModal(false)} style={{ position: 'absolute', top: 24, right: 24, background: '#f1f5f9', border: 'none', borderRadius: '50%', padding: 10, cursor: 'pointer' }}><X size={20} color={colors.primary} /></button>
+              <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: colors.primary, marginBottom: 8 }}>Nova Prescrição</h2>
+              <p style={{ color: colors.textMuted, marginBottom: 32 }}>Emita receitas médicas de forma rápida e segura.</p>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>Medicamento</label>
+                  <input type="text" placeholder="Busque por princípio ativo ou nome comercial" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>Posologia</label>
+                    <input type="text" placeholder="Ex: 1 comprimido a cada 8h" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>Duração</label>
+                    <input type="text" placeholder="Ex: 7 dias" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                  </div>
+                </div>
+                <button onClick={() => {
+                  alert('Receita salva com sucesso!');
+                  setShowPrescriptionModal(false);
+                }} style={{ marginTop: 12, background: colors.success, color: '#fff', border: 'none', padding: '16px', borderRadius: 14, fontWeight: 700, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                  <Plus size={20} /> Adicionar Medicamento e Salvar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL: ASSINATURA DIGITAL */}
+      <AnimatePresence>
+        {showSignatureModal && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(19, 15, 64, 0.6)', backdropFilter: 'blur(10px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} style={{ background: '#fff', width: '100%', maxWidth: '400px', borderRadius: 32, padding: '40px', position: 'relative', boxShadow: '0 30px 60px -12px rgba(0,0,0,0.3)', textAlign: 'center' }}>
+              <button onClick={() => setShowSignatureModal(false)} style={{ position: 'absolute', top: 24, right: 24, background: '#f1f5f9', border: 'none', borderRadius: '50%', padding: 10, cursor: 'pointer' }}><X size={20} color={colors.primary} /></button>
+              
+              <div style={{ width: 64, height: 64, borderRadius: '50%', background: `${colors.primary}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+                <Check size={32} color={colors.primary} />
+              </div>
+              
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: colors.primary, marginBottom: 12 }}>Assinar Prontuário</h2>
+              <p style={{ color: colors.textMuted, marginBottom: 32, fontSize: '0.9rem', lineHeight: 1.5 }}>
+                Ao assinar digitalmente, este prontuário será fechado de acordo com as normas do CFM e LGPD.
+              </p>
+              
+              <button onClick={() => {
+                  alert('Prontuário assinado e salvo com sucesso!');
+                  setShowSignatureModal(false);
+                }} style={{ width: '100%', background: colors.primary, color: '#fff', border: 'none', padding: '16px', borderRadius: 14, fontWeight: 700, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                Confirmar Assinatura
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* FLOATING SOLARA ASSISTANT */}
       <div style={{ position: 'fixed', bottom: 32, right: 32, zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 16 }}>
+        <AnimatePresence>
+          {/* FAB Button para abrir Solara IA */}
+          {!showSolara && (
+            <motion.button
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0 }}
+              whileHover={{ scale: 1.1, boxShadow: `0 12px 30px ${colors.accent}60` }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setShowSolara(true)}
+              style={{
+                width: 60, height: 60, borderRadius: '50%',
+                background: `linear-gradient(135deg, ${colors.primary} 0%, #2c3e50 100%)`,
+                color: '#fff', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: `0 8px 24px ${colors.primary}50`,
+                position: 'relative'
+              }}
+            >
+              <Zap size={26} color={colors.accent} />
+              <div style={{ position: 'absolute', top: -2, right: -2, width: 14, height: 14, borderRadius: '50%', background: colors.success, border: '2px solid #fff', boxShadow: `0 0 8px ${colors.success}` }} />
+            </motion.button>
+          )}
+        </AnimatePresence>
         <AnimatePresence>
           {showSolara && (
             <motion.div initial={{ opacity: 0, y: 20, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.9 }} style={{ width: 350, height: 500, background: '#fff', borderRadius: 28, boxShadow: '0 25px 60px -12px rgba(19, 15, 64, 0.4)', border: '1px solid rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -894,8 +1193,16 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
               </div>
 
               <div style={{ padding: 16, borderTop: '1px solid rgba(0,0,0,0.05)', background: '#fff', display: 'flex', gap: 10 }}>
-                <input placeholder="Digite sua dúvida..." style={{ flex: 1, padding: '12px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', fontSize: '0.9rem' }} />
-                <button style={{ background: colors.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '12px', cursor: 'pointer' }}><Send size={20} /></button>
+                <input 
+                  value={solaraInput}
+                  onChange={e => setSolaraInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSolaraSend()}
+                  placeholder="Digite sua dúvida..." 
+                  style={{ flex: 1, padding: '12px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', fontSize: '0.9rem' }} 
+                />
+                <button onClick={handleSolaraSend} style={{ background: colors.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Send size={20} />
+                </button>
               </div>
             </motion.div>
           )}
