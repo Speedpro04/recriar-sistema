@@ -72,7 +72,8 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
           .single();
         
         // Supabase returns nested relations as objects or arrays. We handle it safely.
-        const planLimit = clinicData?.plans?.max_specialists || clinicData?.plans?.[0]?.max_specialists;
+        const plansData: any = clinicData?.plans;
+        const planLimit = plansData?.max_specialists || plansData?.[0]?.max_specialists;
         if (planLimit) setClinicLimit(planLimit);
       }
 
