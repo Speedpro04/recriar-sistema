@@ -27,7 +27,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showSolara, setShowSolara] = useState(false);
   const [solaraMessages, setSolaraMessages] = useState<any[]>([
-    { role: 'assistant', content: 'Olá! Sou a Solara, sua assistente de IA. Como posso ajudar sua clínica hoje?' }
+    { role: 'assistant', content: 'Olá! Sou a Solara, Gestora de Inteligência da sua clínica. Estou monitorando os agendamentos e a recepção. Como posso otimizar sua operação agora?' }
   ]);
   const [solaraInput, setSolaraInput] = useState('');
   const [clinicLimit, setClinicLimit] = useState(2); // Default to 2 if not loaded
@@ -131,7 +131,8 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
         start_time: startTime.toISOString(), 
         end_time: endTime.toISOString(), 
         status: 'pending',
-        type: 'Consulta'
+        type: 'Consulta',
+        insurance: newPatient.insurance || 'Particular'
       }]);
       if (aError) throw aError;
       setShowModal(false);
@@ -198,30 +199,49 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
     setSolaraInput('');
 
     // Simular resposta da IA baseada em palavras-chave (RAG local)
-    setTimeout(() => {
-      let response = '';
-      const lower = msg.toLowerCase();
+    setTimeout(() => {      const lower = msg.toLowerCase();
+
+      // --- GUARD RAILS (SEGURANÇA DO SISTEMA) ---
+      const guardRails = [
+        'prompt', 'instrução', 'instruções', 'regra', 'secret', 'segredo', 'código', 'code', 'programada', 
+        'quem te criou', 'quem fez você', 'instruções do sistema', 'system prompt', 'api key', 'chave de acesso'
+      ];
+
+      if (guardRails.some(word => lower.includes(word))) {
+        response = 'Como gestora do Solara Connect, meu foco é a produtividade da sua clínica e a segurança dos dados dos pacientes. Informações sobre minha arquitetura interna são confidenciais para garantir a integridade do sistema. Como posso ajudar na sua gestão agora?';
+        setSolaraMessages(prev => [...prev, { role: 'assistant', content: response }]);
+        return;
+      }
+
+      // Bloqueio de Nicho Veterinário
+      if (lower.includes('veterinário') || lower.includes('pet') || lower.includes('animal') || lower.includes('cachorro') || lower.includes('gato')) {
+        response = 'Como gestora do Solara Connect, meu foco é exclusivamente a Saúde Humana (Medicina, Odontologia, Estética e Bem-estar). Não oferecemos suporte para clínicas veterinárias para garantir a máxima especialização no atendimento aos seus pacientes.';
+        setSolaraMessages(prev => [...prev, { role: 'assistant', content: response }]);
+        return;
+      }
 
       if (lower.includes('agendar') || lower.includes('marcar') || lower.includes('consulta') || lower.includes('horário')) {
-        response = 'Para agendar uma consulta, clique no botão "Novo Agendamento" no topo da página, ou me diga o nome do paciente, data e horário desejado que eu oriento o processo.';
-      } else if (lower.includes('cancelar') || lower.includes('desmarcar')) {
-        response = 'Para cancelar um agendamento, acesse a Agenda Kanban, localize o card do paciente e altere o status. Posso ajudar com algo mais?';
-      } else if (lower.includes('remarcar') || lower.includes('reagendar') || lower.includes('mudar')) {
-        response = 'Para remarcar, é necessário localizar o agendamento na Agenda Kanban e atualizar a data/horário. Deseja que eu explique o passo a passo?';
+        response = 'Como gestora, posso iniciar o agendamento. O paciente possui algum convênio (Unimed, Bradesco, etc) ou o atendimento será particular?';
+      } else if (lower.includes('convênio') || lower.includes('unimed') || lower.includes('bradesco') || lower.includes('amil')) {
+        response = 'Excelente. Vou registrar o convênio no prontuário. Lembre-se que alguns procedimentos de estética não são cobertos, devendo ser lançados como particular.';
+      } else if (lower.includes('odonto') || lower.includes('dentista') || lower.includes('dente') || lower.includes('orçamento')) {
+        response = 'Na Odontologia, o foco é a conversão de orçamentos. Notei que temos planos de tratamento em aberto. Deseja que eu analise a taxa de aprovação de próteses e implantes deste mês?';
+      } else if (lower.includes('estética') || lower.includes('procedimento') || lower.includes('botox') || lower.includes('preenchimento')) {
+        response = 'Para clínicas de Estética, gerencio o controle de estoque de insumos e o intervalo entre sessões. Lembrei 5 pacientes que precisam de retoque de toxina botulínica esta semana. Quer enviar o convite?';
+      } else if (lower.includes('médico') || lower.includes('prontuário') || lower.includes('receita') || lower.includes('exame')) {
+        response = 'Na área Médica, priorizo a agilidade no EMR (Prontuário Eletrônico). Posso ajudar a organizar os resultados de exames pendentes para sua revisão antes das consultas de hoje.';
+      } else if (lower.includes('confirmar') || lower.includes('confirmação')) {
+        response = 'Gestão de Absenteísmo: Já enviei as confirmações automáticas. Nossa taxa de "No-Show" caiu 15% este mês graças aos lembretes humanizados que configurei.';
+      } else if (lower.includes('faturamento') || lower.includes('dinheiro') || lower.includes('receita') || lower.includes('lucro')) {
+        response = 'Financeiro: Estou monitorando o fluxo de caixa. O Ticket Médio subiu 10% com os novos pacotes de estética. Recomendo focar nos pacientes de "Lifetime Value" alto este mês.';
       } else if (lower.includes('paciente') || lower.includes('fila') || lower.includes('espera')) {
-        response = `No momento, temos ${appointmentsList.filter(a => a.status === 'pending' || a.status === 'confirmed').length} pacientes na fila/confirmados. Acesse a aba Recepção para ver detalhes.`;
-      } else if (lower.includes('médico') || lower.includes('especialista') || lower.includes('doutor')) {
-        response = `Sua clínica possui ${specialistsList.length} especialista(s) cadastrado(s). Acesse a aba Especialistas para gerenciar a equipe.`;
-      } else if (lower.includes('relatório') || lower.includes('faturamento') || lower.includes('receita')) {
-        response = 'Os relatórios estão disponíveis na aba Relatórios. Lá você encontra faturamento, taxa de absenteísmo e NPS. Também é possível exportar em PDF.';
-      } else if (lower.includes('lgpd') || lower.includes('dado') || lower.includes('privacidade')) {
-        response = 'O Solara Connect está 100% em conformidade com a LGPD. Todos os dados são criptografados e o consentimento do paciente é registrado em cada check-in.';
+        response = `Monitoramento: Temos ${appointmentsList.filter(a => a.status === 'pending' || a.status === 'confirmed').length} pacientes na jornada de hoje. Recomendo agilizar o check-in da sala 02 para evitar atrasos.`;
       } else if (lower.includes('whatsapp') || lower.includes('mensagem')) {
-        response = 'A integração WhatsApp está disponível na aba WhatsApp. A Solara IA pode responder agendamentos automaticamente quando ativada nas Configurações.';
+        response = 'Comunicação Omnichannel: O WhatsApp está integrado. Estou disparando instruções de pós-operatório para os pacientes que saíram de cirurgia hoje. Isso reduz chamadas na recepção.';
       } else if (lower.includes('oi') || lower.includes('olá') || lower.includes('bom dia') || lower.includes('boa tarde')) {
-        response = 'Olá! 😊 Estou aqui para ajudar com a gestão da sua clínica. Pode perguntar sobre agendamentos, pacientes, relatórios ou qualquer funcionalidade do sistema!';
+        response = 'Olá! Sou a Solara, sua Gestora Especialista em Saúde Humana. Estou pronta para otimizar sua clínica de Odonto, Estética ou Medicina. O que vamos gerenciar agora?';
       } else {
-        response = 'Entendi sua dúvida! Para informações mais detalhadas, recomendo verificar as abas do painel. Posso ajudar com: agendamentos, cancelamentos, remarcações, relatórios, LGPD ou WhatsApp. O que prefere?';
+        response = 'Entendi. Como sua gestora, posso atuar em faturamento, retenção de pacientes, conformidade LGPD ou na automação do seu nicho específico de saúde. Qual seu desafio agora?';
       }
 
       setSolaraMessages(prev => [...prev, { role: 'assistant', content: response }]);
@@ -409,7 +429,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                             </div>
                             <div style={{ textAlign: 'right', marginRight: 24 }}>
                               <div style={{ fontSize: '0.9rem', fontWeight: 800, color: colors.success }}>{app.status}</div>
-                              <div style={{ fontSize: '0.7rem', fontWeight: 700, color: colors.textMuted }}>EM ESPERA</div>
+                              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: colors.primary, background: '#f1f5f9', padding: '2px 8px', borderRadius: 6, marginTop: 4 }}>{app.insurance || 'Particular'}</div>
                             </div>
                           </motion.div>
                         ))
@@ -600,9 +620,20 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                                   style={{ background: '#fff', padding: '20px', borderRadius: 20, boxShadow: '0 8px 20px -8px rgba(0,0,0,0.08)', border: '1px solid rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', gap: 16, position: 'relative', overflow: 'hidden', cursor: 'default' }}
                                 >
                                   <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: col.color, opacity: 0.5 }} />
+                                  
+                                  {/* Selo de Confirmação Solara */}
+                                  {item.status === 'confirmed' && (
+                                    <div style={{ position: 'absolute', top: 12, right: 12, background: colors.success, color: '#fff', fontSize: '0.65rem', fontWeight: 900, padding: '4px 8px', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 4, boxShadow: `0 4px 10px ${colors.success}30` }}>
+                                      <CheckCircle2 size={10} /> CLIENTE CONFIRMADO
+                                    </div>
+                                  )}
+
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingLeft: 8 }}>
                                     <span style={{ fontSize: '0.75rem', fontWeight: 700, color: colors.primary, background: '#f1f5f9', padding: '6px 12px', borderRadius: 8, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{item.type || 'Consulta'}</span>
                                     <span style={{ fontSize: '0.9rem', fontWeight: 700, color: colors.primary, display: 'flex', alignItems: 'center', gap: 6, background: `${colors.accent}15`, padding: '4px 10px', borderRadius: 8 }}><Clock size={14} color={colors.accent} /> {time}</span>
+                                    <div style={{ fontSize: '0.8rem', fontWeight: 800, color: item.payment_status === 'pago' ? colors.success : colors.danger, background: item.payment_status === 'pago' ? `${colors.success}15` : `${colors.danger}15`, padding: '4px 8px', borderRadius: 6 }}>
+                                      {item.payment_status === 'pago' ? 'PAGO' : 'PENDENTE'}
+                                    </div>
                                   </div>
                                   <div style={{ paddingLeft: 8 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
@@ -611,8 +642,14 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                                       </div>
                                       <div style={{ fontWeight: 600, color: colors.primary, fontSize: '1.1rem' }}>{patientName}</div>
                                     </div>
-                                    <div style={{ fontSize: '0.85rem', color: colors.textMuted, display: 'flex', alignItems: 'center', gap: 8, fontWeight: 500, background: '#f8fafc', padding: '8px 12px', borderRadius: 10 }}>
+                                    <div style={{ fontSize: '0.85rem', color: colors.textMuted, display: 'flex', alignItems: 'center', gap: 8, fontWeight: 500, background: '#f8fafc', padding: '8px 12px', borderRadius: 10, marginBottom: 8 }}>
                                       <Stethoscope size={16} color={colors.accent} /> {doctorName}
+                                    </div>
+                                    <div style={{ fontSize: '0.85rem', color: colors.primary, display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, background: `${colors.success}10`, padding: '8px 12px', borderRadius: 10, marginBottom: 8 }}>
+                                      <Building size={16} color={colors.success} /> {item.insurance || 'Particular'}
+                                    </div>
+                                    <div style={{ fontSize: '0.9rem', color: colors.success, display: 'flex', alignItems: 'center', gap: 8, fontWeight: 800 }}>
+                                      R$ {item.payment_value || '0,00'}
                                     </div>
                                   </div>
                                   {col.nextStatus && (

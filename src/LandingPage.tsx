@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ShieldCheck, Clock, ArrowRight, Stethoscope, Building, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Clock, ArrowRight, Stethoscope, Building, CheckCircle2, MessageSquare, Calendar } from 'lucide-react';
 import Logo from './Logo';
 
 interface LandingPageProps {
@@ -192,8 +192,11 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 32 }}>
             {[
               { icon: <Clock />, title: "Fila Zero", desc: "Triagem e admissão automatizadas. O paciente aguarda menos de 5 minutos na recepção." },
+              { icon: <Calendar />, title: "Agendamento 24/7", desc: "Sua clínica nunca fecha. Link de agendamento inteligente para seus pacientes marcarem consultas a qualquer hora." },
+              { icon: <MessageSquare />, title: "Agenda no WhatsApp", desc: "Seus especialistas recebem a lista de pacientes todas as manhãs às 06:00, direto no celular." },
               { icon: <Building />, title: "Gestão de Salas", desc: "Painel Kanban em tempo real para otimização de consultórios e controle de fluxo." },
-              { icon: <Stethoscope />, title: "Prontuário Unificado", desc: "Integração total do histórico do paciente antes mesmo de ele entrar na sala." }
+              { icon: <Stethoscope />, title: "Prontuário Unificado", desc: "Integração total do histórico do paciente antes mesmo de ele entrar na sala." },
+              { icon: <ShieldCheck />, title: "Segurança LGPD", desc: "Dados sensíveis criptografados e conformidade total com a Lei Geral de Proteção de Dados." }
             ].map((feat, i) => (
               <motion.div 
                 key={i}
