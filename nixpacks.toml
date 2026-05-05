@@ -1,8 +1,10 @@
+# Força o uso de uma versão moderna do Node.js
 [phases.setup]
-nixPkgs = ["nodejs_20"]
+nixPkgs = ["nodejs_22"]
 
 [phases.build]
 cmds = ["npm install", "npm run build"]
 
-[phases.start]
+# Define explicitamente o comando de inicialização como Node.js
+[start]
 cmd = "npm run preview"
