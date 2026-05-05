@@ -7,7 +7,7 @@ import {
   BarChart3, X, Check,
   Stethoscope, UserPlus, AlertCircle, Printer,
   MessageSquare, FileText, Zap, UserCog, Send,
-  CheckCircle2, Target, Trash2
+  CheckCircle2, Target, Trash2, Building
 } from 'lucide-react';
 import Logo from './Logo';
 import { supabase } from './lib/supabase';
@@ -199,7 +199,9 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
     setSolaraInput('');
 
     // Simular resposta da IA baseada em palavras-chave (RAG local)
-    setTimeout(() => {      const lower = msg.toLowerCase();
+    setTimeout(() => {
+      let response = '';
+      const lower = msg.toLowerCase();
 
       // --- GUARD RAILS (SEGURANÇA DO SISTEMA) ---
       const guardRails = [
