@@ -1,31 +1,17 @@
-# Estágio de Build
-FROM node:22-slim AS build
-
+# Build Stage
+FROM node:22 AS build
 WORKDIR /app
-
-# Copia os arquivos de dependências
 COPY package*.json ./
-
-# Instala as dependências
 RUN npm install
-
-# Copia o restante dos arquivos
 COPY . .
-
-# Executa o build do Vite
 RUN npm run build
 
-# Estágio de Produção
+# Production Stage
 FROM node:22-slim
-
 WORKDIR /app
-
-# Copia as dependências de produção e o build
+# Instala um servidor estático simples para servir o 'dist'
+RUN npm install -g serve
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/package*.json ./
-COPY --from=build /app/node_modules ./node_modules
-
-EXPOSE 4173
-
-# Comando para rodar o preview do Vite (porta 4173)
-CMD ["npm", "run", "preview", "--", "--host"]
+EXPOSE 80
+# Serve a pasta dist na porta 80
+CMD ["serve", "-s", "dist", "-l", "80"]
