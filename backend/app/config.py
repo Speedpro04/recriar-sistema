@@ -8,6 +8,7 @@ class Settings:
     SUPABASE_URL = os.getenv("SUPABASE_URL", "")
     SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
     SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
+    SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 
     # Database URL (Supabase connection string)
     DATABASE_URL = os.getenv("DATABASE_URL", "")
@@ -32,5 +33,8 @@ class Settings:
     SSL_CERTFILE = os.getenv("SSL_CERTFILE", "")
     SSL_KEYFILE = os.getenv("SSL_KEYFILE", "")
     USE_SSL = os.getenv("USE_SSL", "false").lower() == "true"
+
+    # Frontend URL (for checkout redirects)
+    FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
 settings = Settings()

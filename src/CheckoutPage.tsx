@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { CreditCard, CheckCircle2, ArrowLeft, MailCheck, LockKeyhole, Calendar, Hash, Lock, AlertCircle } from 'lucide-react';
 import Logo from './Logo';
-import { activateSubscription, logEmailSent } from './lib/auth';
 
 interface CheckoutPageProps {
   planName: string;
@@ -15,9 +14,9 @@ interface CheckoutPageProps {
   onDevPass?: () => void;
 }
 
-const CheckoutPage: React.FC<CheckoutPageProps> = ({ planName, planPrice, priceId: _priceId, clinicId, userEmail, onPaymentSuccess, onBack, onDevPass: _onDevPass }) => {
+const CheckoutPage: React.FC<CheckoutPageProps> = ({ planName, planPrice, priceId: _priceId, clinicId, userEmail, onPaymentSuccess: _onPaymentSuccess, onBack, onDevPass: _onDevPass }) => {
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [isSuccess] = useState(false);
   const [error, setError] = useState('');
   const [focusState, setFocusState] = useState({ card: false, name: false, val: false, cvv: false });
 
@@ -42,27 +41,40 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ planName, planPrice, priceI
     setIsProcessing(true);
 
     try {
-      // Simula processamento do Stripe (2.5s)
-      await new Promise(resolve => setTimeout(resolve, 2500));
+      if (!_priceId) {
+        throw new Error('Preço Stripe não configurado para este plano');
+      }
 
-      // Ativa a assinatura no banco
-      await activateSubscription(clinicId, `pi_simulated_${Date.now()}`);
-
-      // Registra o envio do e-mail no banco
-      await logEmailSent({
-        clinicId,
-        toEmail: userEmail || 'cliente@clinica.com',
-        subject: `Bem-vindo ao Solara Connect — Plano ${planName}`,
-        template: 'welcome',
-        metadata: { plan: planName, price: planPrice }
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiBase}/api/stripe/create-checkout-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          price_id: _priceId,
+          success_url: `${window.location.origin}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${window.location.origin}?checkout=cancel`,
+          metadata: {
+            clinic_id: clinicId,
+            user_email: userEmail,
+            plan_name: planName,
+            plan_price: planPrice
+          }
+        })
       });
 
-      setIsSuccess(true);
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.detail || 'Falha ao criar sessão de checkout');
+      }
 
-      // Redireciona para o dashboard após 5 segundos
-      setTimeout(() => {
-        onPaymentSuccess();
-      }, 5000);
+      const payload = await response.json();
+      if (!payload.url) {
+        throw new Error('Stripe não retornou URL de checkout');
+      }
+
+      window.location.href = payload.url;
     } catch (err: any) {
       setError(err.message || 'Erro ao processar pagamento.');
       setIsProcessing(false);
@@ -151,19 +163,15 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ planName, planPrice, priceI
                   </div>
                 </div>
 
-                <motion.button disabled={isProcessing} whileHover={!isProcessing ? { scale: 1.02, boxShadow: `0 10px 25px ${colors.cyan}50` } : {}} whileTap={!isProcessing ? { scale: 0.98 } : {}} type="submit" style={{ width: '100%', background: isProcessing ? colors.inputBg : `linear-gradient(to right, ${colors.cyan}, #00a8ff)`, border: isProcessing ? `1px solid ${colors.cyan}` : 'none', padding: '16px', borderRadius: 12, color: isProcessing ? colors.cyan : '#ffffff', fontWeight: 700, fontSize: '1.05rem', cursor: isProcessing ? 'wait' : 'pointer', marginBottom: 12, boxShadow: isProcessing ? 'none' : `0 8px 20px ${colors.cyan}40`, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12 }}>
+                <motion.button disabled={isProcessing} whileHover={!isProcessing ? { scale: 1.02, boxShadow: `0 10px 25px ${colors.cyan}50` } : {}} whileTap={!isProcessing ? { scale: 0.98 } : {}} type="submit" style={{ width: '100%', background: isProcessing ? colors.inputBg : `linear-gradient(to right, ${colors.cyan}, #00a8ff)`, border: isProcessing ? `1px solid ${colors.cyan}` : 'none', padding: '16px', borderRadius: 12, color: isProcessing ? colors.cyan : '#ffffff', fontWeight: 700, fontSize: '1.05rem', cursor: isProcessing ? 'wait' : 'pointer', marginBottom: 24, boxShadow: isProcessing ? 'none' : `0 8px 20px ${colors.cyan}40`, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12 }}>
                   {isProcessing ? (
                     <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
                       <LockKeyhole size={20} />
                     </motion.div>
                   ) : (
-                    <><LockKeyhole size={20} /> Finalizar Pagamento</>
+                    <><LockKeyhole size={20} /> Ir para o Stripe Checkout</>
                   )}
                 </motion.button>
-
-                <button type="button" onClick={onPaymentSuccess} style={{ width: '100%', background: 'transparent', border: `1px solid ${colors.textMuted}`, padding: '12px', borderRadius: 12, color: colors.textMuted, fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', marginBottom: 24, transition: 'all 0.2s' }}>
-                  Pular Pagamento (Passe Livre 🔑)
-                </button>
 
                 <div style={{ textAlign: 'center', fontSize: '0.8rem', color: colors.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                   <Lock size={14} /> Transação 100% criptografada
