@@ -1141,7 +1141,12 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                            style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: '1.1rem', fontWeight: 500 }} 
                            value={newMessage}
                            onChange={(e) => setNewMessage(e.target.value)}
-                           onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                           onKeyDown={(e) => {
+                             if (e.key === 'Enter') {
+                               e.preventDefault();
+                               handleSendMessage();
+                             }
+                           }}
                          />
                          <button 
                            onClick={handleSendMessage}
