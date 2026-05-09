@@ -376,6 +376,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
   };
 
   const handleSendMessage = async () => {
+    console.log('Tentando enviar mensagem...', { newMessage, activeChat });
     if (!newMessage.trim() || !activeChat) return;
 
     const msgData = {
@@ -1158,7 +1159,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                            value={newMessage}
                            onChange={(e) => setNewMessage(e.target.value)}
                            onKeyDown={(e) => {
-                             if (e.key === 'Enter') {
+                             if (e.key === 'Enter' || e.code === 'Enter') {
                                e.preventDefault();
                                handleSendMessage();
                              }
