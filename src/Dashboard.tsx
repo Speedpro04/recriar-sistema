@@ -1169,7 +1169,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                        <button 
                          type="submit"
                          disabled={!activeChat}
-                         style={{ width: 45, height: 45, borderRadius: '50%', background: 'transparent', color: activeChat ? '#54656f' : '#cbd5e1', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                         style={{ width: 45, height: 45, borderRadius: 12, background: activeChat ? colors.primary : '#cbd5e1', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}
                        >
                          <Send size={24} />
                        </button>
