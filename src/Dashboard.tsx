@@ -33,6 +33,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
   const [activeChat, setActiveChat] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [wsView, setWsView] = useState<'chat' | 'list'>('chat');
   const [solaraMessages, setSolaraMessages] = useState<any[]>([
     { role: 'assistant', content: 'Olá! Sou a Solara, Gestora de Inteligência da sua clínica. Estou monitorando os agendamentos e a recepção. Como posso otimizar sua operação agora?' }
   ]);
@@ -93,12 +94,12 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
         .eq('clinic_id', clinicId)
         .order('start_time', { ascending: true });
       
-      // Buscar todos os pacientes da clínica
+      // Buscar todos os pacientes da clínica (Ordenados por nome, mas o WhatsApp pode reordenar por atividade)
       const { data: patients } = await supabase
         .from('patients')
         .select('*')
         .eq('clinic_id', clinicId)
-        .order('name', { ascending: true });
+        .order('created_at', { ascending: false });
 
       if (appError) console.error('Supabase Query Error:', appError);
       if (doctors) setSpecialistsList(doctors);
@@ -421,6 +422,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
     { id: 'journey', label: 'Pré e Pós Consulta', icon: <Zap size={20} /> },
     { id: 'specialists', label: 'Especialistas', icon: <Stethoscope size={20} /> },
     { id: 'reports', label: 'Relatórios', icon: <BarChart3 size={20} /> },
+    { id: 'contacts', label: 'Lista de Pacientes', icon: <Users size={20} /> },
     { id: 'settings', label: 'Configurações', icon: <Settings size={20} /> },
   ];
 
@@ -444,8 +446,8 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: colors.bg, fontFamily: "'Outfit', sans-serif" }}>
       
-      {/* SIDEBAR */}
-      <div style={{ width: '280px', backgroundColor: colors.sidebar, color: '#fff', padding: '32px 20px', display: 'flex', flexDirection: 'column', position: 'fixed', height: '100vh', zIndex: 100, overflowY: 'auto' }}>
+      {/* SIDEBAR NAVEGAÇÃO */}
+      <div style={{ width: '280px', backgroundColor: colors.sidebar, color: '#fff', padding: '32px 20px', display: 'flex', flexDirection: 'column', position: 'fixed', left: 0, top: 0, height: '100vh', zIndex: 101, overflowY: 'auto' }}>
         <div style={{ marginBottom: 40, padding: '0 12px' }}><Logo size={40} textColor="#fff" text="Solara Connect" /></div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {menuItems.map(item => (
@@ -460,8 +462,66 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
         </div>
       </div>
 
-      {/* MAIN CONTENT */}
-      <div style={{ flex: 1, marginLeft: '280px', display: 'flex', flexDirection: 'column' }}>
+      {/* SEGUNDA BARRA: LISTA DE PACIENTES */}
+      <div style={{ width: '320px', backgroundColor: '#fff', borderRight: '1px solid rgba(0,0,0,0.05)', position: 'fixed', left: '280px', top: 0, height: '100vh', zIndex: 100, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '32px 24px 20px' }}>
+          <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: colors.primary, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}><Users size={20} color={colors.accent} /> Pacientes</h3>
+          <div style={{ position: 'relative' }}>
+            <Search size={18} color={colors.textMuted} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
+            <input 
+              placeholder="Buscar..." 
+              value={patientSearch}
+              onChange={(e) => setPatientSearch(e.target.value)}
+              style={{ width: '100%', padding: '12px 12px 12px 42px', borderRadius: 14, border: 'none', background: '#f1f5f9', outline: 'none', fontSize: '0.9rem', fontWeight: 500 }}
+            />
+          </div>
+        </div>
+        
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px 20px' }} className="custom-scroll">
+          {patientsList
+            .filter(p => p.name.toLowerCase().includes(patientSearch.toLowerCase()))
+            .map(patient => (
+            <div 
+              key={patient.id}
+              onClick={() => {
+                setActiveChat(patient);
+                setSelectedPatientId(patient.id);
+                if (['reception', 'reports', 'settings'].includes(activeTab)) {
+                  setActiveTab('whatsapp');
+                }
+              }}
+              style={{ 
+                padding: '16px 12px', 
+                borderRadius: 16, 
+                cursor: 'pointer', 
+                marginBottom: 8,
+                transition: 'all 0.2s',
+                background: selectedPatientId === patient.id ? colors.accent + '20' : 'transparent',
+                border: selectedPatientId === patient.id ? `1px solid ${colors.accent}40` : '1px solid transparent'
+              }}
+              onMouseEnter={e => selectedPatientId !== patient.id && (e.currentTarget.style.background = '#f8fafc')}
+              onMouseLeave={e => selectedPatientId !== patient.id && (e.currentTarget.style.background = 'transparent')}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: colors.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '1.1rem' }}>
+                  {patient.name.charAt(0)}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '20px', fontWeight: 600, color: colors.primary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {patient.name}
+                  </div>
+                  <div style={{ fontSize: '0.85rem', color: colors.textMuted, fontWeight: 500 }}>
+                    CPF: {patient.cpf || '---'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* MAIN CONTENT (MARGEM AJUSTADA) */}
+      <div style={{ flex: 1, marginLeft: '600px', display: 'flex', flexDirection: 'column' }}>
         
         {/* HEADER */}
         <header style={{ padding: '24px 40px', backgroundColor: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(20px)', position: 'sticky', top: 0, zIndex: 50, borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
@@ -1015,64 +1075,45 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
             </motion.div>
             )}
 
-            {/* VIEW: WHATSAPP */}
+            {/* VIEW: WHATSAPP (EXPANDIDO) */}
             {activeTab === 'whatsapp' && (
               <motion.div key="whatsapp" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} style={{ height: 'calc(100vh - 200px)', display: 'flex', justifyContent: 'center' }}>
                 <div style={{ width: '100%', maxWidth: 1000, background: '#fff', borderRadius: 32, border: '8px solid #1e293b', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', display: 'flex', overflow: 'hidden' }}>
-                  {/* Sidebar contacts */}
-                  <div style={{ width: 320, background: '#f8fafc', borderRight: '1px solid rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column' }}>
-                     <div style={{ padding: 20, borderBottom: '1px solid rgba(0,0,0,0.05)' }}><input placeholder="Buscar conversa..." style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: 'none', background: '#e2e8f0', outline: 'none', fontSize: '0.9rem', fontWeight: 500 }}/></div>
-                      <div style={{ flex: 1, overflowY: 'auto' }}>
-                        {patientsList.slice(0, 10).map((patient) => (
-                          <div 
-                            key={patient.id} 
-                            onClick={() => {
-                              setActiveChat(patient);
-                              fetchMessages(patient.id);
-                            }}
-                            style={{ 
-                              padding: '16px 20px', 
-                              borderBottom: '1px solid rgba(0,0,0,0.03)', 
-                              display: 'flex', gap: 12, cursor: 'pointer', 
-                              background: activeChat?.id === patient.id ? '#fff' : 'transparent', 
-                              borderLeft: activeChat?.id === patient.id ? `4px solid ${colors.success}` : '4px solid transparent' 
-                            }}
-                          >
-                            <div style={{ width: 44, height: 44, borderRadius: '50%', background: colors.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '1.1rem' }}>{patient.name.charAt(0)}</div>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                <span style={{ fontWeight: 600, fontSize: '1.1rem', color: colors.primary }}>{patient.name}</span>
-                                <span style={{ fontSize: '0.8rem', color: colors.textMuted, fontWeight: 600 }}>Agora</span>
-                              </div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                                <span style={{ fontSize: '0.8rem', color: colors.accent, fontWeight: 700 }}>CPF: {patient.cpf || '---'}</span>
-                              </div>
-                              <div style={{ fontSize: '0.95rem', color: colors.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 160, fontWeight: 500 }}>Clique para ver as mensagens</div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                  </div>
-                  {/* Chat Area */}
+                  
+                  {/* Chat Area (Full Width) */}
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#f1f5f9', position: 'relative' }}>
                     <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.05, backgroundImage: 'url("https://www.transparenttextures.com/patterns/cubes.png")' }} />
+                    
                     <div style={{ padding: '20px 24px', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(0,0,0,0.05)', position: 'relative', zIndex: 2 }}>
                        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                         <div style={{ width: 52, height: 52, borderRadius: '50%', background: colors.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: '1.3rem' }}>R</div>
-                         <div><div style={{ fontWeight: 600, color: colors.primary, fontSize: '1.2rem' }}>Ricardo Mendes</div><div style={{ fontSize: '0.9rem', color: colors.success, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 8, height: 8, background: colors.success, borderRadius: '50%' }} /> Em atendimento pela IA</div></div>
+                         <div style={{ width: 52, height: 52, borderRadius: '50%', background: colors.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: '1.3rem' }}>
+                            {activeChat?.name.charAt(0) || <MessageSquare size={24} />}
+                         </div>
+                         <div>
+                            <div style={{ fontWeight: 600, color: colors.primary, fontSize: '1.2rem' }}>{activeChat?.name || 'Selecione um Paciente na Lista'}</div>
+                            <div style={{ fontSize: '0.9rem', color: colors.success, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                               <div style={{ width: 8, height: 8, background: colors.success, borderRadius: '50%' }} /> 
+                               {activeChat ? 'WhatsApp Conectado' : 'Aguardando seleção'}
+                            </div>
+                         </div>
                        </div>
-                       <button style={{ background: '#fff', color: colors.danger, border: `1px solid ${colors.danger}40`, padding: '10px 16px', borderRadius: 12, fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 4px 10px rgba(255, 82, 82, 0.1)', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
-                         <UserCog size={18} /> Assumir Atendimento (Humano)
-                       </button>
+                       {activeChat && (
+                         <button style={{ background: '#fff', color: colors.danger, border: `1px solid ${colors.danger}40`, padding: '10px 16px', borderRadius: 12, fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 4px 10px rgba(255, 82, 82, 0.1)' }}>
+                           <UserCog size={18} /> Assumir Atendimento
+                         </button>
+                       )}
                     </div>
+
                     <div style={{ flex: 1, padding: 32, display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto', position: 'relative', zIndex: 2 }}>
                        {!activeChat ? (
                          <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20, color: colors.textMuted }}>
-                           <MessageSquare size={64} opacity={0.2} />
-                           <div style={{ fontSize: '1.2rem', fontWeight: 600 }}>Selecione um paciente para iniciar o chat</div>
+                           <MessageSquare size={80} opacity={0.1} />
+                           <div style={{ fontSize: '1.3rem', fontWeight: 600 }}>Escolha um paciente na lista lateral para conversar</div>
                          </div>
                        ) : messages.length === 0 ? (
-                         <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.textMuted }}>Nenhuma mensagem trocada ainda.</div>
+                         <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.textMuted }}>
+                           Inicie uma conversa com {activeChat.name}
+                         </div>
                        ) : (
                          messages.map((m, idx) => (
                            <div key={idx} style={{ 
@@ -1090,19 +1131,22 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                          ))
                        )}
                     </div>
+
                     <div style={{ padding: '20px 32px', background: '#fff', borderTop: '1px solid rgba(0,0,0,0.05)', position: 'relative', zIndex: 2 }}>
                        <div style={{ display: 'flex', background: '#f8fafc', padding: '10px 10px 10px 24px', borderRadius: 24, border: '1px solid rgba(0,0,0,0.05)' }}>
                          <input 
                            type="text" 
-                           placeholder="Escreva uma mensagem..." 
-                           style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: '1rem', fontWeight: 500 }} 
+                           placeholder={activeChat ? "Escreva uma mensagem..." : "Selecione um paciente..."}
+                           disabled={!activeChat}
+                           style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: '1.1rem', fontWeight: 500 }} 
                            value={newMessage}
                            onChange={(e) => setNewMessage(e.target.value)}
                            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                          />
                          <button 
                            onClick={handleSendMessage}
-                           style={{ width: 48, height: 48, borderRadius: 20, background: colors.primary, color: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}
+                           disabled={!activeChat}
+                           style={{ width: 48, height: 48, borderRadius: 20, background: activeChat ? colors.primary : '#cbd5e1', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}
                          >
                            <Send size={20} />
                          </button>
@@ -1203,6 +1247,69 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                     </div>
                   ))
                 )}
+              </motion.div>
+            )}
+
+            {/* VIEW: CONTACTS (LISTA DE PACIENTES) */}
+            {activeTab === 'contacts' && (
+              <motion.div key="contacts" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+                <div style={{ background: '#fff', borderRadius: 32, padding: '40px', border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 20px 50px rgba(0,0,0,0.03)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 40 }}>
+                    <h2 style={{ fontSize: '2rem', fontWeight: 600, color: colors.primary }}>Central de Pacientes</h2>
+                    <div style={{ display: 'flex', gap: 16 }}>
+                      <div style={{ position: 'relative', width: 400 }}>
+                        <Search size={20} color={colors.textMuted} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)' }} />
+                        <input 
+                          type="text" 
+                          placeholder="Buscar por nome, CPF ou telefone..." 
+                          style={{ width: '100%', padding: '16px 16px 16px 48px', borderRadius: 16, border: '1px solid #e2e8f0', outline: 'none', fontSize: '1rem', background: '#f8fafc' }} 
+                        />
+                      </div>
+                      <button onClick={() => setShowModal(true)} style={{ background: colors.primary, color: '#fff', border: 'none', padding: '16px 32px', borderRadius: 16, fontWeight: 600, fontSize: '1.1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Plus size={20} /> Novo Paciente
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 12px' }}>
+                      <thead>
+                        <tr>
+                          <th style={{ textAlign: 'left', padding: '16px 24px', fontSize: '20px', fontWeight: 600, color: colors.textMuted }}>Nome do Paciente</th>
+                          <th style={{ textAlign: 'left', padding: '16px 24px', fontSize: '20px', fontWeight: 600, color: colors.textMuted }}>CPF</th>
+                          <th style={{ textAlign: 'left', padding: '16px 24px', fontSize: '20px', fontWeight: 600, color: colors.textMuted }}>WhatsApp</th>
+                          <th style={{ textAlign: 'left', padding: '16px 24px', fontSize: '20px', fontWeight: 600, color: colors.textMuted }}>Status</th>
+                          <th style={{ textAlign: 'center', padding: '16px 24px', fontSize: '20px', fontWeight: 600, color: colors.textMuted }}>Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {patientsList.map((p) => (
+                          <tr key={p.id} style={{ background: '#f8fafc', borderRadius: 20, transition: 'all 0.2s' }}>
+                            <td style={{ padding: '24px', borderRadius: '20px 0 0 20px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                                <div style={{ width: 44, height: 44, borderRadius: 12, background: colors.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: '1.2rem' }}>
+                                  {p.name.charAt(0)}
+                                </div>
+                                <div style={{ fontSize: '1.1rem', fontWeight: 600, color: colors.primary }}>{p.name}</div>
+                              </div>
+                            </td>
+                            <td style={{ padding: '24px', fontSize: '1.1rem', color: colors.textMuted, fontWeight: 500 }}>{p.cpf || '---.---.----00'}</td>
+                            <td style={{ padding: '24px', fontSize: '1.1rem', color: colors.textMuted, fontWeight: 500 }}>{p.phone}</td>
+                            <td style={{ padding: '24px' }}>
+                              <span style={{ background: colors.success + '20', color: colors.success, padding: '8px 16px', borderRadius: 10, fontSize: '0.9rem', fontWeight: 600 }}>Ativo</span>
+                            </td>
+                            <td style={{ padding: '24px', borderRadius: '0 20px 20px 0', textAlign: 'center' }}>
+                              <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+                                <button onClick={() => { setSelectedPatientId(p.id); setActiveTab('emr'); }} style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '10px', borderRadius: 12, cursor: 'pointer', color: colors.primary }} title="Ver Prontuário"><FileText size={20} /></button>
+                                <button onClick={() => { setActiveChat(p); setActiveTab('whatsapp'); }} style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '10px', borderRadius: 12, cursor: 'pointer', color: colors.success }} title="Enviar Mensagem"><MessageSquare size={20} /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </motion.div>
             )}
 
