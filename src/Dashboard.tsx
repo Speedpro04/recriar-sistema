@@ -462,7 +462,8 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
         </div>
       </div>
 
-      {/* SEGUNDA BARRA: LISTA DE PACIENTES */}
+      {/* SEGUNDA BARRA: LISTA DE PACIENTES (EXCLUSIVO WHATSAPP) */}
+      {activeTab === 'whatsapp' && (
       <div style={{ width: '320px', backgroundColor: '#fff', borderRight: '1px solid rgba(0,0,0,0.05)', position: 'fixed', left: '280px', top: 0, height: '100vh', zIndex: 100, display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '32px 24px 20px' }}>
           <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: colors.primary, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}><Users size={20} color={colors.accent} /> Pacientes</h3>
@@ -519,9 +520,10 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
           ))}
         </div>
       </div>
+      )}
 
-      {/* MAIN CONTENT (MARGEM AJUSTADA) */}
-      <div style={{ flex: 1, marginLeft: '600px', display: 'flex', flexDirection: 'column' }}>
+      {/* MAIN CONTENT (MARGEM AJUSTADA DINAMICAMENTE) */}
+      <div style={{ flex: 1, marginLeft: activeTab === 'whatsapp' ? '600px' : '280px', display: 'flex', flexDirection: 'column' }}>
         
         {/* HEADER */}
         <header style={{ padding: '24px 40px', backgroundColor: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(20px)', position: 'sticky', top: 0, zIndex: 50, borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
