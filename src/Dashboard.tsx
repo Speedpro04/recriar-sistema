@@ -1096,6 +1096,12 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                             <div style={{ fontSize: '0.8rem', color: colors.success, fontWeight: 600 }}>visto por último hoje às {new Date().getHours()}:{new Date().getMinutes()}</div>
                          </div>
                        </div>
+
+                       {activeChat && (
+                         <button style={{ background: '#fff', color: colors.danger, border: `1px solid ${colors.danger}40`, padding: '10px 16px', borderRadius: 12, fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 4px 10px rgba(255, 82, 82, 0.1)' }}>
+                           <UserCog size={18} /> Humano Atender
+                         </button>
+                       )}
                     </div>
 
                     {/* Messages Area */}
