@@ -1141,7 +1141,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                            style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: '1.1rem', fontWeight: 500 }} 
                            value={newMessage}
                            onChange={(e) => setNewMessage(e.target.value)}
-                           onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                           onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                          />
                          <button 
                            onClick={handleSendMessage}
