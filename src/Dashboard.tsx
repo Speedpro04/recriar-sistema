@@ -376,23 +376,33 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
   };
 
   const handleSendMessage = async () => {
-    console.log('Tentando enviar mensagem...', { newMessage, activeChat });
     if (!newMessage.trim() || !activeChat) return;
 
-    const msgData = {
+    const msgContent = newMessage;
+    const tempMsg = {
       patient_id: activeChat.id,
-      content: newMessage,
+      content: msgContent,
       sender_type: 'clinic',
-      status: 'sent'
+      status: 'sent',
+      created_at: new Date().toISOString()
     };
 
-    const { error } = await supabase.from('messages').insert([msgData]);
+    // 1. ATUALIZAÇÃO OTIMISTA (INSTANTÂNEA NA TELA)
+    setMessages(prev => [...prev, tempMsg]);
+    setNewMessage('');
 
-    if (!error) {
-      setMessages([...messages, { ...msgData, created_at: new Date().toISOString() }]);
-      setNewMessage('');
-    } else {
-      console.error('Erro ao enviar mensagem:', error);
+    try {
+      // 2. ENVIA PARA O SUPABASE EM SEGUNDO PLANO
+      const { error } = await supabase.from('messages').insert([{
+        patient_id: tempMsg.patient_id,
+        content: tempMsg.content,
+        sender_type: tempMsg.sender_type,
+        status: 'sent'
+      }]);
+
+      if (error) console.error('Erro ao sincronizar mensagem:', error);
+    } catch (err) {
+      console.error('Falha crítica no envio:', err);
     }
   };
 
