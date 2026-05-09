@@ -1077,8 +1077,8 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
 
             {/* VIEW: WHATSAPP (EXPANDIDO) */}
             {activeTab === 'whatsapp' && (
-              <motion.div key="whatsapp" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} style={{ height: 'calc(100vh - 160px)', display: 'flex', justifyContent: 'center', paddingBottom: 20 }}>
-                <div style={{ width: '100%', maxWidth: 1100, background: '#fff', borderRadius: 32, border: '12px solid #1e293b', boxShadow: '0 30px 60px -12px rgba(0,0,0,0.3)', display: 'flex', overflow: 'hidden', position: 'relative' }}>
+              <motion.div key="whatsapp" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} style={{ height: 'calc(100vh - 200px)', display: 'flex', justifyContent: 'center', paddingBottom: 20 }}>
+                <div style={{ width: '100%', maxWidth: 960, background: '#fff', borderRadius: 32, border: '12px solid #1e293b', boxShadow: '0 30px 60px -12px rgba(0,0,0,0.3)', display: 'flex', overflow: 'hidden', position: 'relative' }}>
                   
                   {/* WhatsApp Web Style UI */}
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#e5ddd5', position: 'relative' }}>
