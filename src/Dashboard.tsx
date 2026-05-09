@@ -33,7 +33,6 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
   const [activeChat, setActiveChat] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [wsView, setWsView] = useState<'chat' | 'list'>('chat');
   const [solaraMessages, setSolaraMessages] = useState<any[]>([
     { role: 'assistant', content: 'Olá! Sou a Solara, Gestora de Inteligência da sua clínica. Estou monitorando os agendamentos e a recepção. Como posso otimizar sua operação agora?' }
   ]);
@@ -364,16 +363,6 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
     }, 800);
   };
 
-  const fetchMessages = async (patientId: string) => {
-    const { data, error } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('patient_id', patientId)
-      .order('created_at', { ascending: true });
-    
-    if (data) setMessages(data);
-    if (error) console.error('Erro ao buscar mensagens:', error);
-  };
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !activeChat) return;
