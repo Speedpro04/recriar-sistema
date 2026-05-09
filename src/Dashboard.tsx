@@ -7,7 +7,7 @@ import {
   BarChart3, X, Check,
   Stethoscope, UserPlus, AlertCircle, Printer,
   MessageSquare, FileText, Zap, UserCog, Send,
-  CheckCircle2, Target, Trash2, Building
+  CheckCircle2, Target, Trash2, Building, CheckCheck
 } from 'lucide-react';
 import Logo from './Logo';
 import { supabase } from './lib/supabase';
@@ -1077,68 +1077,78 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
 
             {/* VIEW: WHATSAPP (EXPANDIDO) */}
             {activeTab === 'whatsapp' && (
-              <motion.div key="whatsapp" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} style={{ height: 'calc(100vh - 200px)', display: 'flex', justifyContent: 'center' }}>
-                <div style={{ width: '100%', maxWidth: 1000, background: '#fff', borderRadius: 32, border: '8px solid #1e293b', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', display: 'flex', overflow: 'hidden' }}>
+              <motion.div key="whatsapp" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} style={{ height: 'calc(100vh - 160px)', display: 'flex', justifyContent: 'center', paddingBottom: 20 }}>
+                <div style={{ width: '100%', maxWidth: 1100, background: '#fff', borderRadius: 32, border: '12px solid #1e293b', boxShadow: '0 30px 60px -12px rgba(0,0,0,0.3)', display: 'flex', overflow: 'hidden', position: 'relative' }}>
                   
-                  {/* Chat Area (Full Width) */}
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#f1f5f9', position: 'relative' }}>
-                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.05, backgroundImage: 'url("https://www.transparenttextures.com/patterns/cubes.png")' }} />
+                  {/* WhatsApp Web Style UI */}
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#e5ddd5', position: 'relative' }}>
+                    {/* Background Pattern */}
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.4, backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")', backgroundRepeat: 'repeat', pointerEvents: 'none', zIndex: 1 }} />
                     
-                    <div style={{ padding: '20px 24px', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(0,0,0,0.05)', position: 'relative', zIndex: 2 }}>
-                       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                         <div style={{ width: 52, height: 52, borderRadius: '50%', background: colors.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: '1.3rem' }}>
-                            {activeChat?.name.charAt(0) || <MessageSquare size={24} />}
+                    {/* Header */}
+                    <div style={{ padding: '14px 24px', background: '#f0f2f5', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(0,0,0,0.1)', position: 'relative', zIndex: 10 }}>
+                       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                         <div style={{ width: 45, height: 45, borderRadius: '50%', background: '#dfe5e7', color: '#54656f', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: '1.1rem' }}>
+                            {activeChat?.name.charAt(0) || <MessageSquare size={20} />}
                          </div>
                          <div>
-                            <div style={{ fontWeight: 600, color: colors.primary, fontSize: '1.2rem' }}>{activeChat?.name || 'Selecione um Paciente na Lista'}</div>
-                            <div style={{ fontSize: '0.9rem', color: colors.success, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                               <div style={{ width: 8, height: 8, background: colors.success, borderRadius: '50%' }} /> 
-                               {activeChat ? 'WhatsApp Conectado' : 'Aguardando seleção'}
-                            </div>
+                            <div style={{ fontWeight: 600, color: '#111', fontSize: '1.05rem' }}>{activeChat?.name || 'Selecione um Paciente'}</div>
+                            <div style={{ fontSize: '0.8rem', color: colors.success, fontWeight: 600 }}>visto por último hoje às {new Date().getHours()}:{new Date().getMinutes()}</div>
                          </div>
                        </div>
-                       {activeChat && (
-                         <button style={{ background: '#fff', color: colors.danger, border: `1px solid ${colors.danger}40`, padding: '10px 16px', borderRadius: 12, fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 4px 10px rgba(255, 82, 82, 0.1)' }}>
-                           <UserCog size={18} /> Assumir Atendimento
-                         </button>
-                       )}
                     </div>
 
-                    <div style={{ flex: 1, padding: 32, display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto', position: 'relative', zIndex: 2 }}>
+                    {/* Messages Area */}
+                    <div style={{ flex: 1, padding: '20px 40px', display: 'flex', flexDirection: 'column', gap: 4, overflowY: 'auto', position: 'relative', zIndex: 5 }}>
                        {!activeChat ? (
-                         <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20, color: colors.textMuted }}>
-                           <MessageSquare size={80} opacity={0.1} />
-                           <div style={{ fontSize: '1.3rem', fontWeight: 600 }}>Escolha um paciente na lista lateral para conversar</div>
-                         </div>
-                       ) : messages.length === 0 ? (
-                         <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.textMuted }}>
-                           Inicie uma conversa com {activeChat.name}
+                         <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20, textAlign: 'center' }}>
+                           <div style={{ background: '#fff', padding: 40, borderRadius: '50%', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+                             <MessageSquare size={100} color={colors.primary} opacity={0.1} />
+                           </div>
+                           <h2 style={{ color: '#41525d', fontWeight: 300, fontSize: '2rem' }}>Solara Connect WhatsApp</h2>
+                           <p style={{ color: '#667781', fontSize: '0.9rem', maxWidth: 400 }}>Mantenha seu celular conectado. Envie e receba mensagens sem precisar abrir o aparelho.</p>
                          </div>
                        ) : (
-                         messages.map((m, idx) => (
-                           <div key={idx} style={{ 
-                             alignSelf: m.sender_type === 'patient' ? 'flex-start' : 'flex-end', 
-                             background: m.sender_type === 'patient' ? '#fff' : colors.success, 
-                             color: m.sender_type === 'patient' ? colors.primary : '#fff', 
-                             padding: '18px 22px', borderRadius: m.sender_type === 'patient' ? '0 20px 20px 20px' : '20px 0 20px 20px', 
-                             maxWidth: '75%', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', fontSize: '1.1rem', fontWeight: 500, lineHeight: 1.5 
-                           }}>
-                             {m.content}
-                             <span style={{ display: 'block', fontSize: '0.8rem', opacity: 0.7, marginTop: 8, textAlign: 'right', fontWeight: 600 }}>
-                               {new Date(m.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                             </span>
-                           </div>
-                         ))
+                         <>
+                           <div style={{ alignSelf: 'center', background: '#fff', padding: '6px 12px', borderRadius: 8, fontSize: '0.75rem', color: '#54656f', boxShadow: '0 1px 1px rgba(0,0,0,0.1)', marginBottom: 20, fontWeight: 600, textTransform: 'uppercase' }}>Hoje</div>
+                           
+                           {messages.map((m, idx) => {
+                             const isMe = m.sender_type !== 'patient';
+                             return (
+                               <div key={idx} style={{ 
+                                 alignSelf: isMe ? 'flex-end' : 'flex-start', 
+                                 background: isMe ? '#dcf8c6' : '#fff', 
+                                 color: '#111', 
+                                 padding: '6px 10px 14px 10px', 
+                                 borderRadius: isMe ? '8px 0 8px 8px' : '0 8px 8px 8px', 
+                                 maxWidth: '65%', 
+                                 boxShadow: '0 1px 1.5px rgba(0,0,0,0.15)', 
+                                 fontSize: '0.95rem', 
+                                 fontWeight: 400, 
+                                 lineHeight: 1.4,
+                                 position: 'relative',
+                                 marginBottom: 4
+                               }}>
+                                 {m.content}
+                                 <div style={{ display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'flex-end', marginTop: -4, position: 'absolute', bottom: 4, right: 8, fontSize: '0.65rem', color: 'rgba(0,0,0,0.45)' }}>
+                                   {new Date(m.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                   {isMe && <CheckCheck size={14} color="#34b7f1" />}
+                                 </div>
+                               </div>
+                             );
+                           })}
+                         </>
                        )}
                     </div>
 
-                    <div style={{ padding: '20px 32px', background: '#fff', borderTop: '1px solid rgba(0,0,0,0.05)', position: 'relative', zIndex: 2 }}>
-                       <div style={{ display: 'flex', background: '#f8fafc', padding: '10px 10px 10px 24px', borderRadius: 24, border: '1px solid rgba(0,0,0,0.05)' }}>
+                    {/* Footer / Input */}
+                    <div style={{ padding: '10px 16px', background: '#f0f2f5', display: 'flex', alignItems: 'center', gap: 12, position: 'relative', zIndex: 10 }}>
+                       <div style={{ flex: 1, background: '#fff', borderRadius: 8, padding: '4px 12px', display: 'flex', alignItems: 'center', boxShadow: '0 1px 1px rgba(0,0,0,0.05)' }}>
                          <input 
                            type="text" 
-                           placeholder={activeChat ? "Escreva uma mensagem..." : "Selecione um paciente..."}
+                           placeholder="Mensagem"
                            disabled={!activeChat}
-                           style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: '1.1rem', fontWeight: 500 }} 
+                           style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: '1rem', padding: '9px 0', color: '#3b4a54' }} 
                            value={newMessage}
                            onChange={(e) => setNewMessage(e.target.value)}
                            onKeyDown={(e) => {
@@ -1148,14 +1158,14 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                              }
                            }}
                          />
-                         <button 
-                           onClick={handleSendMessage}
-                           disabled={!activeChat}
-                           style={{ width: 48, height: 48, borderRadius: 20, background: activeChat ? colors.primary : '#cbd5e1', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}
-                         >
-                           <Send size={20} />
-                         </button>
                        </div>
+                       <button 
+                         onClick={handleSendMessage}
+                         disabled={!activeChat}
+                         style={{ width: 45, height: 45, borderRadius: '50%', background: 'transparent', color: activeChat ? '#54656f' : '#cbd5e1', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                       >
+                         <Send size={24} />
+                       </button>
                     </div>
                   </div>
                 </div>
