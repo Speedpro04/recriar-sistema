@@ -27,6 +27,10 @@
   padding: 0;
 }
 
+html {
+  font-size: 18px;
+}
+
 body {
   font-family: 'Outfit', sans-serif;
   background-color: var(--bg-main);

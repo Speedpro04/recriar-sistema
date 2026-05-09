@@ -30,11 +30,13 @@ function App() {
 
   // Restaurar sessão ao carregar a página
   useEffect(() => {
+    const queryParams = new URLSearchParams(window.location.search);
+    const checkoutSuccess = queryParams.get('checkout') === 'success';
+
     const restoreSession = async () => {
       try {
         const session = await getCurrentSession();
         if (session?.user) {
-          // Buscar clinicId do usuário logado
           const { data: userProfile } = await supabase
             .from('users')
             .select('clinic_id')
@@ -44,12 +46,22 @@ function App() {
           if (userProfile?.clinic_id) {
             setClinicId(userProfile.clinic_id);
             setUserEmail(session.user.email || '');
+            
+            if (checkoutSuccess) {
+              window.history.replaceState({}, document.title, "/");
+            }
+            
             setView('dashboard');
             return;
           }
         }
       } catch (err) {
         console.warn('Nenhuma sessão ativa:', err);
+      }
+      
+      if (checkoutSuccess) {
+        // Se pagou mas não achou a sessão (raro), tenta login ou mostra landing
+        window.history.replaceState({}, document.title, "/");
       }
       setView('landing');
     };

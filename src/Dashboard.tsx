@@ -19,13 +19,20 @@ interface DashboardProps {
 
 const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
   const [activeTab, setActiveTab] = useState('reception');
+  const [showRecordModal, setShowRecordModal] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showModal, setShowModal] = useState(false);
   const [showSpecialistModal, setShowSpecialistModal] = useState(false);
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
   const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [anamnese, setAnamnese] = useState("");
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const [patientSearch, setPatientSearch] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showSolara, setShowSolara] = useState(false);
+  const [activeChat, setActiveChat] = useState<any>(null);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [newMessage, setNewMessage] = useState('');
   const [solaraMessages, setSolaraMessages] = useState<any[]>([
     { role: 'assistant', content: 'Olá! Sou a Solara, Gestora de Inteligência da sua clínica. Estou monitorando os agendamentos e a recepção. Como posso otimizar sua operação agora?' }
   ]);
@@ -35,8 +42,9 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
   // Estados de Dados Reais
   const [specialistsList, setSpecialistsList] = useState<any[]>([]);
   const [appointmentsList, setAppointmentsList] = useState<any[]>([]);
+  const [patientsList, setPatientsList] = useState<any[]>([]);
   const [newPatient, setNewPatient] = useState({
-    name: '', phone: '', age: '', insurance: 'Particular', lgpd_consent: false
+    name: '', phone: '', age: '', insurance: 'Particular', cpf: '', lgpd_consent: false
   });
   const [newAppointment, setNewAppointment] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -61,7 +69,8 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
       const { data: doctors } = await supabase
         .from('users')
         .select('id, name, email, specialty, crm, active')
-        .in('role', ['doctor', 'owner']);
+        .in('role', ['doctor', 'owner'])
+        .eq('clinic_id', clinicId);
 
       // Buscar limite do plano da clínica
       if (clinicId) {
@@ -81,11 +90,20 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
       const { data: appointments, error: appError } = await supabase
         .from('appointments')
         .select('*, patients(name, phone, email), users!appointments_doctor_id_fkey(name, specialty)')
+        .eq('clinic_id', clinicId)
         .order('start_time', { ascending: true });
       
+      // Buscar todos os pacientes da clínica
+      const { data: patients } = await supabase
+        .from('patients')
+        .select('*')
+        .eq('clinic_id', clinicId)
+        .order('name', { ascending: true });
+
       if (appError) console.error('Supabase Query Error:', appError);
       if (doctors) setSpecialistsList(doctors);
       if (appointments) setAppointmentsList(appointments);
+      if (patients) setPatientsList(patients);
     } catch (error) {
       console.error('Erro ao buscar dados:', error);
     } finally {
@@ -106,40 +124,59 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
   const handleSaveAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPatient.name || !newPatient.lgpd_consent) {
-      alert('Nome e Consentimento LGPD são obrigatórios!');
+      console.error('Nome e Consentimento LGPD são obrigatórios!');
       return;
     }
     setIsLoading(true);
-    try {
-      // Inserir paciente com clinic_id obrigatório
-      const { data: patient, error: pError } = await supabase.from('patients').insert([{ 
-        name: newPatient.name, 
-        phone: newPatient.phone,
-        clinic_id: clinicId || undefined,
-        notes: newPatient.insurance !== 'Particular' ? `Convênio: ${newPatient.insurance}` : null
-      }]).select().single();
-      if (pError) throw pError;
+    
+    // 1. ATUALIZAÇÃO OTIMISTA: Salva na tela primeiro
+    const startTime = new Date(`${newAppointment.date}T${newAppointment.time}:00`);
+    const optimisticApp = {
+      id: 'temp-' + Date.now(),
+      patient_id: 'temp-p',
+      doctor_id: newAppointment.doctor_id,
+      clinic_id: clinicId,
+      start_time: startTime.toISOString(),
+      status: 'pending',
+      type: 'Consulta',
+      insurance: newPatient.insurance,
+      patients: { name: newPatient.name, phone: newPatient.phone },
+      users: specialistsList.find(s => s.id === newAppointment.doctor_id) || { name: 'Geral', specialty: 'Clínico' }
+    };
 
-      // Montar start_time e end_time a partir de date + time
-      const startTime = new Date(`${newAppointment.date}T${newAppointment.time}:00`);
-      const endTime = new Date(startTime.getTime() + 30 * 60 * 1000); // +30 minutos
+    setAppointmentsList(prev => [...prev, optimisticApp]);
+    setShowModal(false);
+    const resetPatient = { name: '', phone: '', age: '', insurance: 'Particular', lgpd_consent: false };
+    const resetApp = { date: new Date().toISOString().split('T')[0], time: '09:00', doctor_id: '' };
+    setNewPatient(resetPatient);
+    setNewAppointment(resetApp);
+
+    try {
+      // 2. SALVA NO SUPABASE DEPOIS
+      const { data: patient, error: pError } = await supabase.from('patients').insert([{ 
+        name: optimisticApp.patients.name, 
+        phone: optimisticApp.patients.phone,
+        clinic_id: clinicId,
+        notes: optimisticApp.insurance !== 'Particular' ? `Convênio: ${optimisticApp.insurance}` : null
+      }]).select().single();
+      
+      if (pError) throw pError;
 
       const { error: aError } = await supabase.from('appointments').insert([{
         patient_id: patient.id, 
-        doctor_id: newAppointment.doctor_id || null,
-        clinic_id: clinicId || undefined,
-        start_time: startTime.toISOString(), 
-        end_time: endTime.toISOString(), 
+        doctor_id: optimisticApp.doctor_id || null,
+        clinic_id: clinicId,
+        start_time: optimisticApp.start_time, 
+        end_time: new Date(startTime.getTime() + 30 * 60 * 1000).toISOString(), 
         status: 'pending',
         type: 'Consulta',
-        insurance: newPatient.insurance || 'Particular'
+        insurance: optimisticApp.insurance
       }]);
+
       if (aError) throw aError;
-      setShowModal(false);
-      setNewPatient({ name: '', phone: '', age: '', insurance: 'Particular', lgpd_consent: false });
-      setNewAppointment({ date: new Date().toISOString().split('T')[0], time: '09:00', doctor_id: '' });
+      fetchData(); // Sincroniza com dados reais
     } catch (error: any) {
-      alert('Erro: ' + error.message);
+      console.error('Erro ao sincronizar agendamento:', error.message);
     } finally {
       setIsLoading(false);
     }
@@ -149,27 +186,87 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
   const handleSaveSpecialist = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSpecialist.name.trim() || !newSpecialist.specialty.trim()) {
-      alert('Nome e Especialidade são obrigatórios!');
+      console.error('Nome e Especialidade são obrigatórios!');
       return;
     }
+
+    if (!clinicId) {
+      console.error('Erro: ID da clínica não encontrado. Tentativa de salvar especialista sem clinicId');
+      return;
+    }
+
     setIsLoading(true);
+    console.log('Iniciando salvamento de especialista:', newSpecialist);
+    console.log('ID da Clínica:', clinicId);
+
     try {
-      const { error } = await supabase.from('users').insert([{
+      // 1. ATUALIZAÇÃO OTIMISTA: Salva na tela primeiro
+      const optimisticSpecialist = {
+        id: 'temp-' + Date.now(),
         name: newSpecialist.name,
         email: newSpecialist.email || `${newSpecialist.name.toLowerCase().replace(/\s+/g, '.')}@clinica.com`,
         specialty: newSpecialist.specialty,
         crm: newSpecialist.crm || null,
         phone: newSpecialist.phone || null,
+        active: true
+      };
+
+      setSpecialistsList(prev => [...prev, optimisticSpecialist]);
+      setShowSpecialistModal(false);
+      setNewSpecialist({ name: '', email: '', specialty: '', crm: '', phone: '', active: true });
+
+      // 2. SALVA NO SUPABASE DEPOIS
+      const { error } = await supabase.from('users').insert([{
+        name: optimisticSpecialist.name,
+        email: optimisticSpecialist.email,
+        specialty: optimisticSpecialist.specialty,
+        crm: optimisticSpecialist.crm,
+        phone: optimisticSpecialist.phone,
         role: 'doctor',
-        clinic_id: clinicId || undefined,
+        clinic_id: clinicId,
         active: true
       }]);
-      if (error) throw error;
-      setShowSpecialistModal(false);
-      setNewSpecialist({ name: '', email: '', specialty: '', crm: '', phone: '' });
-      fetchData(); // Recarregar lista
+
+      if (error) {
+        console.error('Erro ao sincronizar com Supabase:', error.message);
+      } else {
+        fetchData(); // Sincroniza com os dados reais
+      }
     } catch (error: any) {
-      alert('Erro ao salvar especialista: ' + error.message);
+      console.error('Erro ao salvar especialista:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+
+  const handleSaveMedicalRecord = async () => {
+    if (!clinicId) return;
+    
+    setIsLoading(true);
+    try {
+      // 1. AÇÃO INSTANTÂNEA NA TELA
+      setShowSignatureModal(false);
+      const contentToSave = anamnese; // Guarda o conteúdo
+      setAnamnese(""); // Limpa o campo
+      
+      // 2. SALVA NO SUPABASE EM SEGUNDO PLANO
+      const { error } = await supabase
+        .from('medical_records')
+        .insert([{
+          clinic_id: clinicId,
+          patient_id: selectedPatientId || '00000000-0000-0000-0000-000000000000', // Mock se não selecionado
+          content: contentToSave,
+          status: 'finalizado',
+          signed_at: new Date().toISOString()
+        }]);
+
+      if (error) {
+        console.error('Erro ao salvar prontuário no Supabase:', error.message);
+      }
+    } catch (error: any) {
+      console.error('Erro completo ao salvar prontuário:', error);
+      alert('Erro ao processar salvamento: ' + error.message);
     } finally {
       setIsLoading(false);
     }
@@ -178,14 +275,30 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
   // === ATUALIZAR STATUS DO AGENDAMENTO ===
   const handleUpdateAppointmentStatus = async (appointmentId: string, newStatus: string) => {
     try {
+      // 1. ATUALIZAÇÃO OTIMISTA
+      setAppointmentsList(prev => prev.map(app => 
+        app.id === appointmentId ? { ...app, status: newStatus } : app
+      ));
+
+      // Se o status for "Em Atendimento", já seleciona o paciente e vai para o Prontuário
+      if (newStatus === 'em_atendimento') {
+        const appointment = appointmentsList.find(a => a.id === appointmentId);
+        if (appointment) {
+          setSelectedPatientId(appointment.patient_id);
+          setActiveTab('emr');
+          setAnamnese(""); // Limpa para o novo atendimento
+        }
+      }
+
+      // 2. SINCRONIZA COM SUPABASE
       const { error } = await supabase
         .from('appointments')
         .update({ status: newStatus })
         .eq('id', appointmentId);
+
       if (error) throw error;
-      fetchData();
     } catch (error: any) {
-      console.error('Erro ao atualizar status:', error.message);
+      console.error('Erro ao atualizar status:', error);
     }
   };
 
@@ -248,6 +361,37 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
 
       setSolaraMessages(prev => [...prev, { role: 'assistant', content: response }]);
     }, 800);
+  };
+
+  const fetchMessages = async (patientId: string) => {
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('patient_id', patientId)
+      .order('created_at', { ascending: true });
+    
+    if (data) setMessages(data);
+    if (error) console.error('Erro ao buscar mensagens:', error);
+  };
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !activeChat) return;
+
+    const msgData = {
+      patient_id: activeChat.id,
+      content: newMessage,
+      sender_type: 'clinic',
+      status: 'sent'
+    };
+
+    const { error } = await supabase.from('messages').insert([msgData]);
+
+    if (!error) {
+      setMessages([...messages, { ...msgData, created_at: new Date().toISOString() }]);
+      setNewMessage('');
+    } else {
+      console.error('Erro ao enviar mensagem:', error);
+    }
   };
 
   const timeString = currentTime.toLocaleTimeString('pt-BR', { 
@@ -323,7 +467,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
         <header style={{ padding: '24px 40px', backgroundColor: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(20px)', position: 'sticky', top: 0, zIndex: 50, borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <div style={{ flex: 1 }}>
-              <h1 style={{ fontSize: '1.8rem', fontWeight: 700, color: colors.primary, marginBottom: 4 }}>
+              <h1 style={{ fontSize: '1.8rem', fontWeight: 600, color: colors.primary, marginBottom: 4 }}>
                 {menuItems.find(i => i.id === activeTab)?.label}
               </h1>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: colors.textMuted, fontSize: '0.95rem', fontWeight: 600 }}>
@@ -352,21 +496,21 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
               )}
               
               {activeTab === 'reports' ? (
-                <button onClick={() => window.print()} style={{ background: '#fff', color: colors.primary, border: `1px solid ${colors.primary}20`, padding: '12px 24px', borderRadius: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, boxShadow: `0 4px 10px rgba(0,0,0,0.05)` }}>
+                <button onClick={() => window.print()} style={{ background: '#fff', color: colors.primary, border: `1px solid ${colors.primary}20`, padding: '12px 24px', borderRadius: 12, fontSize: '1.1rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, boxShadow: `0 4px 10px rgba(0,0,0,0.05)` }}>
                   <Printer size={20} /> Exportar Relatório (PDF)
                 </button>
               ) : activeTab === 'specialists' ? (
                 <button onClick={() => {
                   if (specialistsList.length >= clinicLimit) {
-                    alert(`Limitação do Plano: Você atingiu o limite máximo de ${clinicLimit} especialista(s) permitido no seu plano atual.\n\nPor favor, faça um upgrade para adicionar mais profissionais à sua clínica.`);
+                    console.warn('Limite de especialistas atingido');
                   } else {
                     setShowSpecialistModal(true);
                   }
-                }} style={{ background: colors.primary, color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, boxShadow: `0 10px 20px ${colors.primary}30` }}>
+                }} style={{ background: colors.primary, color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 12, fontSize: '1.1rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, boxShadow: `0 10px 20px ${colors.primary}30` }}>
                   <Plus size={20} /> Novo Especialista
                 </button>
               ) : (
-                <button onClick={() => setShowModal(true)} style={{ background: colors.primary, color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, boxShadow: `0 10px 20px ${colors.primary}30` }}>
+                <button onClick={() => setShowModal(true)} style={{ background: colors.primary, color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 12, fontSize: '1.1rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, boxShadow: `0 10px 20px ${colors.primary}30` }}>
                   <UserPlus size={20} /> {activeTab === 'agenda' ? 'Novo Agendamento' : 'Check-in Rápido'}
                 </button>
               )}
@@ -394,7 +538,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                         <div style={{ width: 44, height: 44, borderRadius: 12, background: `${s.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.color }}>{s.icon}</div>
                         <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: colors.primary }}>{s.value}</div>
+                          <div style={{ fontSize: '1.6rem', fontWeight: 600, color: colors.primary }}>{s.value}</div>
                           <div style={{ fontSize: '0.75rem', fontWeight: 700, color: s.color }}>{s.sub}</div>
                         </div>
                       </div>
@@ -408,7 +552,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                   {/* Pacientes na Fila */}
                   <div style={{ background: '#fff', borderRadius: 28, border: '1px solid rgba(0,0,0,0.05)', padding: '32px', boxShadow: '0 10px 30px rgba(0,0,0,0.03)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-                      <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: colors.primary }}>Fila de Atendimento</h3>
+                      <h3 style={{ fontSize: '1.5rem', fontWeight: 600, color: colors.primary }}>Fila de Atendimento</h3>
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button style={{ background: '#f1f5f9', border: 'none', padding: '8px 16px', borderRadius: 10, fontSize: '0.8rem', fontWeight: 700, color: colors.textMuted }}>Filtros</button>
                         <button style={{ background: '#f1f5f9', border: 'none', padding: '8px 16px', borderRadius: 10, fontSize: '0.8rem', fontWeight: 700, color: colors.textMuted }}>Ver Tudo</button>
@@ -423,7 +567,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                           <motion.div key={app.id} whileHover={{ x: 10 }} style={{ display: 'flex', alignItems: 'center', padding: '20px', borderRadius: 20, background: '#fff', border: `1px solid #f1f5f9`, boxShadow: '0 4px 6px rgba(0,0,0,0.01)' }}>
                             <div style={{ width: 48, height: 48, borderRadius: 14, background: colors.primary, color: colors.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, marginRight: 20 }}>{app.patients?.name?.charAt(0) || 'P'}</div>
                             <div style={{ flex: 1 }}>
-                              <div style={{ fontWeight: 700, color: colors.primary, fontSize: '1rem', marginBottom: 4 }}>{app.patients?.name}</div>
+                              <div style={{ fontWeight: 600, color: colors.primary, fontSize: '20px', marginBottom: 4 }}>{app.patients?.name}</div>
                               <div style={{ fontSize: '0.85rem', color: colors.textMuted, display: 'flex', gap: 12 }}>
                                 <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Clock size={14} /> Horário: {app.start_time ? new Date(app.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--'}</span>
                                 <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Stethoscope size={14} /> {app.type || 'Consulta'}</span>
@@ -431,7 +575,18 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                             </div>
                             <div style={{ textAlign: 'right', marginRight: 24 }}>
                               <div style={{ fontSize: '0.9rem', fontWeight: 800, color: colors.success }}>{app.status}</div>
-                              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: colors.primary, background: '#f1f5f9', padding: '2px 8px', borderRadius: 6, marginTop: 4 }}>{app.insurance || 'Particular'}</div>
+                              <div style={{ 
+                                fontSize: '0.75rem', 
+                                fontWeight: 800, 
+                                color: app.insurance === 'Particular' ? colors.success : colors.accent, 
+                                background: app.insurance === 'Particular' ? `${colors.success}15` : `${colors.accent}15`, 
+                                padding: '4px 12px', 
+                                borderRadius: 8, 
+                                marginTop: 6,
+                                border: `1px solid ${app.insurance === 'Particular' ? colors.success + '30' : colors.accent + '30'}`
+                              }}>
+                                {app.insurance || 'Particular'}
+                              </div>
                             </div>
                           </motion.div>
                         ))
@@ -442,7 +597,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                   {/* Status dos Especialistas */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                     <div style={{ background: colors.primary, borderRadius: 28, padding: '28px', color: '#fff', boxShadow: `0 20px 40px ${colors.primary}40` }}>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10 }}><Stethoscope size={20} color={colors.accent} /> Especialistas</h3>
+                      <h3 style={{ fontSize: '1.3rem', fontWeight: 600, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10 }}><Stethoscope size={20} color={colors.accent} /> Especialistas</h3>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                         {specialistsList.length === 0 ? (
                           <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '20px' }}>Nenhum médico cadastrado.</div>
@@ -495,9 +650,9 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                         </div>
                         <div style={{ fontSize: '0.75rem', fontWeight: 800, color: stat.color, background: `${stat.color}10`, padding: '4px 10px', borderRadius: 8 }}>AO VIVO</div>
                       </div>
-                      <div style={{ fontSize: '1.8rem', fontWeight: 800, color: colors.primary, marginBottom: 4 }}>{stat.value}</div>
-                      <div style={{ fontSize: '0.9rem', fontWeight: 700, color: colors.primary }}>{stat.label}</div>
-                      <div style={{ fontSize: '0.75rem', color: colors.textMuted, marginTop: 4 }}>{stat.desc}</div>
+                      <div style={{ fontSize: '2rem', fontWeight: 600, color: colors.primary, marginBottom: 4 }}>{stat.value}</div>
+                      <div style={{ fontSize: '20px', fontWeight: 600, color: colors.primary }}>{stat.label}</div>
+                      <div style={{ fontSize: '0.85rem', color: colors.textMuted, marginTop: 4 }}>{stat.desc}</div>
                     </div>
                   ))}
                 </div>
@@ -507,7 +662,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                   {/* Inactive Patients List */}
                   <div style={{ background: '#fff', borderRadius: 32, padding: 32, border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 15px 40px rgba(0,0,0,0.03)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-                      <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: colors.primary, display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <h3 style={{ fontSize: '1.5rem', fontWeight: 600, color: colors.primary, display: 'flex', alignItems: 'center', gap: 12 }}>
                         <Users size={24} color={colors.accent} /> Pacientes para Reativar
                       </h3>
                       <div style={{ display: 'flex', gap: 10 }}>
@@ -526,12 +681,13 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                         <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '16px 20px', background: '#f8fafc', borderRadius: 20, border: '1px solid transparent', transition: 'all 0.2s', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.borderColor = colors.accent}>
                           <div style={{ width: 44, height: 44, borderRadius: 14, background: colors.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, marginRight: 16 }}>{p.name.charAt(0)}</div>
                           <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 700, color: colors.primary, fontSize: '1rem' }}>{p.name}</div>
-                            <div style={{ fontSize: '0.8rem', color: colors.textMuted }}>{p.procedure} • Última visita: {p.lastVisit}</div>
+                            <div style={{ fontWeight: 600, color: colors.primary, fontSize: '20px' }}>{p.name}</div>
+                            <div style={{ fontSize: '0.9rem', color: colors.textMuted }}>CPF: {p.cpf || '000.000.000-00'} • {p.procedure}</div>
+                            <div style={{ fontSize: '0.85rem', color: colors.textMuted, opacity: 0.7 }}>Última visita: {p.lastVisit}</div>
                           </div>
                           <div style={{ textAlign: 'right', marginRight: 32 }}>
-                            <div style={{ fontSize: '1rem', fontWeight: 800, color: colors.primary }}>{p.value}</div>
-                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: p.risk === 'Crítico' ? colors.danger : colors.warn }}>Risco {p.risk}</div>
+                            <div style={{ fontSize: '1.2rem', fontWeight: 600, color: colors.primary }}>{p.value}</div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: p.risk === 'Crítico' ? colors.danger : colors.warn }}>Risco {p.risk}</div>
                           </div>
                           <button onClick={() => alert('Mensagem de recuperação inteligente enviada via WhatsApp para ' + p.name + '!')} style={{ background: colors.success, color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 12, fontSize: '0.85rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxShadow: `0 8px 16px ${colors.success}30` }}>
                             <MessageSquare size={16} /> Recuperar
@@ -545,7 +701,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                     <div style={{ background: `linear-gradient(135deg, ${colors.primary} 0%, #1e1b4b 100%)`, borderRadius: 32, padding: 32, color: '#fff', boxShadow: `0 20px 40px ${colors.primary}40`, position: 'relative', overflow: 'hidden' }}>
                       <div style={{ position: 'absolute', top: -50, right: -50, width: 200, height: 200, background: colors.accent, filter: 'blur(100px)', opacity: 0.15 }}></div>
-                      <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>Campanhas Inteligentes</h3>
+                      <h3 style={{ fontSize: '1.4rem', fontWeight: 600, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>Campanhas Inteligentes</h3>
                       <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)', marginBottom: 24, lineHeight: 1.6 }}>Selecione um modelo de campanha e deixe a IA da Solara cuidar das mensagens.</p>
                       
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -555,8 +711,8 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                           { title: 'Promoção Especial', desc: 'Envio em massa para toda a base', color: colors.warn }
                         ].map((c, i) => (
                           <div key={i} style={{ background: 'rgba(255,255,255,0.05)', padding: 16, borderRadius: 20, border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
-                            <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#fff', marginBottom: 4 }}>{c.title}</div>
-                            <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)', marginBottom: 12 }}>{c.desc}</div>
+                            <div style={{ fontWeight: 600, fontSize: '20px', color: '#fff', marginBottom: 4 }}>{c.title}</div>
+                            <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', marginBottom: 12 }}>{c.desc}</div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <span style={{ fontSize: '0.75rem', color: c.color, fontWeight: 700 }}>Disponível</span>
                               <button style={{ background: 'transparent', border: `1px solid ${c.color}`, color: c.color, padding: '4px 12px', borderRadius: 8, fontSize: '0.75rem', fontWeight: 700 }}>Configurar</button>
@@ -647,8 +803,20 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                                     <div style={{ fontSize: '0.85rem', color: colors.textMuted, display: 'flex', alignItems: 'center', gap: 8, fontWeight: 500, background: '#f8fafc', padding: '8px 12px', borderRadius: 10, marginBottom: 8 }}>
                                       <Stethoscope size={16} color={colors.accent} /> {doctorName}
                                     </div>
-                                    <div style={{ fontSize: '0.85rem', color: colors.primary, display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, background: `${colors.success}10`, padding: '8px 12px', borderRadius: 10, marginBottom: 8 }}>
-                                      <Building size={16} color={colors.success} /> {item.insurance || 'Particular'}
+                                    <div style={{ 
+                                      fontSize: '0.8rem', 
+                                      color: item.insurance === 'Particular' ? colors.success : colors.accent, 
+                                      display: 'flex', 
+                                      alignItems: 'center', 
+                                      gap: 8, 
+                                      fontWeight: 800, 
+                                      background: item.insurance === 'Particular' ? `${colors.success}10` : `${colors.accent}10`, 
+                                      padding: '8px 12px', 
+                                      borderRadius: 10, 
+                                      marginBottom: 12,
+                                      border: `1px solid ${item.insurance === 'Particular' ? colors.success + '30' : colors.accent + '30'}`
+                                    }}>
+                                      <Building size={16} /> {item.insurance || 'Particular'}
                                     </div>
                                     <div style={{ fontSize: '0.9rem', color: colors.success, display: 'flex', alignItems: 'center', gap: 8, fontWeight: 800 }}>
                                       R$ {item.payment_value || '0,00'}
@@ -673,62 +841,178 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
 
             {/* VIEW: EMR (PRONTUÁRIO) */}
             {activeTab === 'emr' && (
-              <motion.div key="emr" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 32 }}>
+              <motion.div key="emr" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
                 
-                {/* Resumo do Paciente */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                  <div style={{ background: '#fff', borderRadius: 28, padding: 32, border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 15px 35px rgba(0,0,0,0.02)', textAlign: 'center' }}>
-                    <div style={{ width: 80, height: 80, borderRadius: '50%', background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primary}dd 100%)`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: 700, margin: '0 auto 16px' }}>C</div>
-                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: colors.primary }}>Carlos Eduardo</h3>
-                    <div style={{ fontSize: '0.85rem', color: colors.textMuted, fontWeight: 500, marginBottom: 24 }}>34 Anos • O+ • Convênio</div>
-                    
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, textAlign: 'left', background: '#f8fafc', padding: 16, borderRadius: 16 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}><span style={{ color: colors.textMuted, fontWeight: 600 }}>Peso</span> <span style={{ fontWeight: 700, color: colors.primary }}>78 kg</span></div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}><span style={{ color: colors.textMuted, fontWeight: 600 }}>Altura</span> <span style={{ fontWeight: 700, color: colors.primary }}>1.82 m</span></div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}><span style={{ color: colors.textMuted, fontWeight: 600 }}>Alergias</span> <span style={{ fontWeight: 700, color: colors.danger }}>Penicilina</span></div>
-                    </div>
+                {/* Header da Central de Prontuários */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <h2 style={{ fontSize: '2rem', fontWeight: 800, color: colors.primary, letterSpacing: '-0.5px' }}>Prontuário Digital</h2>
+                    <p style={{ color: colors.textMuted, fontWeight: 500 }}>Acesse o histórico e realize novas evoluções clínicas.</p>
                   </div>
-
-                  <div style={{ background: '#fff', borderRadius: 28, padding: 24, border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 15px 35px rgba(0,0,0,0.02)' }}>
-                    <h4 style={{ fontSize: '1rem', fontWeight: 700, color: colors.primary, marginBottom: 16 }}>Histórico Recente</h4>
-                    <div style={{ position: 'relative', paddingLeft: 16, borderLeft: `2px solid #e2e8f0` }}>
-                      <div style={{ position: 'relative', marginBottom: 16 }}>
-                        <div style={{ position: 'absolute', left: -21, top: 4, width: 10, height: 10, borderRadius: '50%', background: colors.accent, border: '2px solid #fff' }} />
-                        <div style={{ fontSize: '0.75rem', color: colors.textMuted, fontWeight: 600 }}>12 Mar 2026</div>
-                        <div style={{ fontSize: '0.9rem', fontWeight: 600, color: colors.primary }}>Consulta de Rotina</div>
-                      </div>
-                      <div style={{ position: 'relative' }}>
-                        <div style={{ position: 'absolute', left: -21, top: 4, width: 10, height: 10, borderRadius: '50%', background: '#cbd5e1', border: '2px solid #fff' }} />
-                        <div style={{ fontSize: '0.75rem', color: colors.textMuted, fontWeight: 600 }}>05 Fev 2026</div>
-                        <div style={{ fontSize: '0.9rem', fontWeight: 600, color: colors.primary }}>Exame de Sangue</div>
-                      </div>
+                  <button 
+                    onClick={() => setShowRecordModal(true)}
+                    style={{ 
+                      background: `linear-gradient(135deg, ${colors.primary} 0%, #2c3e50 100%)`, 
+                      color: '#fff', border: 'none', padding: '16px 28px', borderRadius: 18, 
+                      fontWeight: 700, fontSize: '1rem', cursor: 'pointer', 
+                      display: 'flex', alignItems: 'center', gap: 12, 
+                      boxShadow: `0 15px 30px ${colors.primary}40`,
+                      transition: 'all 0.3s'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-3px)'}
+                    onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                  >
+                    <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: '50%', padding: 4 }}>
+                      <Plus size={20} />
                     </div>
-                  </div>
+                    Novo Prontuário
+                  </button>
                 </div>
 
-                {/* Evolução e Prescrição */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                  <div style={{ background: '#fff', borderRadius: 28, padding: 32, border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 15px 35px rgba(0,0,0,0.02)', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                      <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: colors.primary, display: 'flex', alignItems: 'center', gap: 10 }}><FileText size={20} color={colors.accent} /> Evolução Clínica (Anamnese)</h3>
-                      <button onClick={() => setShowPrescriptionModal(true)} style={{ background: colors.success, color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 12, fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxShadow: `0 8px 16px ${colors.success}40`, transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}><Plus size={18} /> Nova Receita</button>
-                    </div>
+                 <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 32 }}>
+                
+                  {/* Fila Lateral de Pacientes */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 20, position: 'sticky', top: 120, height: 'calc(100vh - 160px)' }}>
                     
-                    <textarea 
-                      placeholder="Descreva o atendimento, queixas do paciente e conduta médica..." 
-                      style={{ flex: 1, width: '100%', border: '1px solid rgba(0,0,0,0.05)', borderRadius: 16, padding: 20, outline: 'none', resize: 'none', background: '#f8fafc', fontSize: '0.95rem', color: colors.text, fontFamily: 'inherit', lineHeight: 1.6 }}
-                      defaultValue={"Paciente relata dores leves na região lombar após esforço físico.\n\nConduta:\n- Solicitação de Raio-X.\n- Prescrição de anti-inflamatório.\n- Repouso de 3 dias."}
-                    />
+                      {/* CARD EM DESTAQUE (TOP) */}
+                      {(() => {
+                        const activePatient = patientsList.find(p => p.id === selectedPatientId);
+                        if (!activePatient) return null;
+                        
+                        // Busca o especialista de forma mais abrangente (último agendamento)
+                        const lastApp = [...appointmentsList]
+                          .reverse()
+                          .find(a => a.patient_id === activePatient.id);
+                        const specialist = lastApp ? specialistsList.find(s => s.id === lastApp.doctor_id) : null;
 
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
-                      <button onClick={() => setShowSignatureModal(true)} style={{ background: colors.primary, color: '#fff', border: 'none', padding: '14px 32px', borderRadius: 14, fontWeight: 700, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, boxShadow: `0 10px 20px ${colors.primary}30` }}>
-                        <Check size={20} /> Assinar e Salvar
-                      </button>
+                        return (
+                          <div style={{ background: colors.primary, borderRadius: 28, padding: 32, color: '#fff', textAlign: 'center', boxShadow: `0 20px 40px ${colors.primary}40`, marginBottom: 8 }}>
+                            <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 600, margin: '0 auto 16px' }}>{activePatient.name.charAt(0)}</div>
+                            <h3 style={{ fontSize: '1.2rem', fontWeight: 600 }}>{activePatient.name}</h3>
+                            <div style={{ fontSize: '0.9rem', opacity: 0.7, marginBottom: 20 }}>{activePatient.age || '--'} Anos • {activePatient.insurance || 'Particular'}</div>
+                            
+                            <div style={{ background: 'rgba(255,255,255,0.05)', padding: 16, borderRadius: 16, textAlign: 'left', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ opacity: 0.6 }}>WhatsApp:</span> 
+                                <span>{activePatient.phone || '--'}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ opacity: 0.6 }}>CPF:</span> 
+                                <span>{activePatient.cpf || '--'}</span>
+                              </div>
+                              <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ opacity: 0.6 }}>Especialista:</span> 
+                                <span style={{ color: colors.accent, fontWeight: 700 }}>{specialist ? specialist.name : 'Não definido'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                    <div style={{ background: '#fff', borderRadius: 28, padding: '24px', border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 15px 35px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', height: '100%', flex: 1, overflow: 'hidden' }}>
+                      <h4 style={{ fontSize: '1.1rem', fontWeight: 600, color: colors.primary, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Users size={20} color={colors.accent} /> Próximos da Fila
+                      </h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto', paddingRight: 8, flex: 1 }}>
+                        {patientsList.filter(p => p.id !== selectedPatientId).map((patient) => {
+                          const todayApp = appointmentsList.find(a => 
+                            a.patient_id === patient.id && 
+                            ['confirmado', 'em_atendimento', 'aguardando'].includes(a.status)
+                          );
+                          const specialist = todayApp ? specialistsList.find(s => s.id === todayApp.doctor_id) : null;
+                          
+                          return (
+                            <motion.div 
+                              key={patient.id}
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => {
+                                setSelectedPatientId(patient.id);
+                                setAnamnese("");
+                              }}
+                              style={{ 
+                                padding: '16px', 
+                                borderRadius: 18, 
+                                border: '2px solid transparent', 
+                                background: '#f8fafc',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                position: 'relative'
+                              }}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                <div style={{ fontWeight: 600, color: colors.primary, fontSize: '1.05rem' }}>{patient.name}</div>
+                                {todayApp && (
+                                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: colors.success, boxShadow: `0 0 8px ${colors.success}` }} title="Agendado para hoje" />
+                                )}
+                              </div>
+                              <div style={{ fontSize: '0.85rem', color: colors.textMuted, fontWeight: 500, display: 'flex', justifyContent: 'space-between' }}>
+                                <span>{patient.insurance || 'Particular'} • CPF: {patient.cpf || '---'}</span>
+                              </div>
+                              {specialist && (
+                                <div style={{ fontSize: '0.8rem', color: colors.accent, fontWeight: 600, marginTop: 4 }}>
+                                  Especialista: {specialist.name}
+                                </div>
+                              )}
+                            </motion.div>
+                          );
+                        })}
+                        {patientsList.length <= 1 && (
+                          <div style={{ textAlign: 'center', padding: '40px 20px', fontSize: '0.85rem', color: colors.textMuted }}>Nenhum outro paciente na fila.</div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
+                
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                  {(() => {
+                    const activePatient = patientsList.find(p => p.id === selectedPatientId);
+                    
+                    if (!activePatient) {
+                      return (
+                        <div style={{ background: '#fff', borderRadius: 28, padding: '100px 60px', textAlign: 'center', border: '1px dashed rgba(0,0,0,0.1)', flex: 1 }}>
+                          <div style={{ width: 80, height: 80, borderRadius: '50%', background: `${colors.accent}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+                            <Users size={40} color={colors.accent} />
+                          </div>
+                          <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: colors.primary, marginBottom: 12 }}>Selecione um paciente na fila</h3>
+                          <p style={{ color: colors.textMuted }}>O médico pode clicar em qualquer paciente na lista à esquerda para ver a ficha e iniciar o atendimento.</p>
+                        </div>
+                      );
+                    }
 
-              </motion.div>
+                    return (
+                      <div style={{ background: '#fff', borderRadius: 28, padding: 32, border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 15px 35px rgba(0,0,0,0.02)', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <h3 style={{ fontSize: '1.3rem', fontWeight: 600, color: colors.primary, display: 'flex', alignItems: 'center', gap: 10 }}><FileText size={22} color={colors.accent} /> Evolução Clínica</h3>
+                            {(() => {
+                              const todayApp = appointmentsList.find(a => a.patient_id === activePatient.id && ['confirmado', 'em_atendimento', 'aguardando'].includes(a.status));
+                              const specialist = todayApp ? specialistsList.find(s => s.id === todayApp.doctor_id) : null;
+                              return specialist ? (
+                                <div style={{ fontSize: '0.9rem', color: colors.textMuted, fontWeight: 600, marginLeft: 32 }}>
+                                  Responsável: <span style={{ color: colors.accent }}>{specialist.name}</span>
+                                </div>
+                              ) : null;
+                            })()}
+                          </div>
+                          <div style={{ display: 'flex', gap: 12 }}>
+                            <button onClick={() => setShowPrescriptionModal(true)} style={{ background: colors.success, color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 12, fontWeight: 600, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}><Plus size={20} /> Receita</button>
+                            <button onClick={() => setShowSignatureModal(true)} style={{ background: colors.primary, color: '#fff', border: 'none', padding: '10px 24px', borderRadius: 12, fontWeight: 600, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}><Check size={20} /> Assinar e Salvar</button>
+                          </div>
+                        </div>
+                        
+                        <textarea 
+                          placeholder="Descreva o atendimento, queixas do paciente e conduta médica..." 
+                          style={{ flex: 1, minHeight: '400px', width: '100%', border: '1px solid rgba(0,0,0,0.05)', borderRadius: 20, padding: 24, outline: 'none', resize: 'none', background: '#f8fafc', fontSize: '1.1rem', color: colors.text, fontFamily: 'inherit', lineHeight: 1.6 }}
+                          value={anamnese}
+                          onChange={(e) => setAnamnese(e.target.value)}
+                        />
+                      </div>
+                    );
+                  })()}
+                  </div>
+                </div>
+            </motion.div>
             )}
 
             {/* VIEW: WHATSAPP */}
@@ -738,42 +1022,73 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                   {/* Sidebar contacts */}
                   <div style={{ width: 320, background: '#f8fafc', borderRight: '1px solid rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column' }}>
                      <div style={{ padding: 20, borderBottom: '1px solid rgba(0,0,0,0.05)' }}><input placeholder="Buscar conversa..." style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: 'none', background: '#e2e8f0', outline: 'none', fontSize: '0.9rem', fontWeight: 500 }}/></div>
-                     <div style={{ flex: 1, overflowY: 'auto' }}>
-                       {[
-                         { name: 'Ricardo Mendes', time: '14:05', msg: 'Chego em 5 minutos.', unread: 2 },
-                         { name: 'Julia Rocha', time: '13:50', msg: 'Obrigada pelo atendimento!', unread: 0 },
-                         { name: 'Marcos Braz', time: 'Ontem', msg: 'Pode reagendar para amanhã?', unread: 0 },
-                       ].map((chat, i) => (
-                         <div key={i} style={{ padding: '16px 20px', borderBottom: '1px solid rgba(0,0,0,0.03)', display: 'flex', gap: 12, cursor: 'pointer', background: i === 0 ? '#fff' : 'transparent', borderLeft: i === 0 ? `4px solid ${colors.success}` : '4px solid transparent' }}>
-                           <div style={{ width: 44, height: 44, borderRadius: '50%', background: colors.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '1.1rem' }}>{chat.name.charAt(0)}</div>
-                           <div style={{ flex: 1 }}>
-                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><span style={{ fontWeight: 800, fontSize: '0.95rem', color: colors.primary }}>Solara <span style={{ color: colors.accent }}>Connect</span></span> <span style={{ fontSize: '0.75rem', color: i === 0 ? colors.success : colors.textMuted, fontWeight: i === 0 ? 700 : 500 }}>{chat.time}</span></div>
-                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span style={{ fontSize: '0.85rem', color: colors.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 160, fontWeight: i === 0 ? 600 : 500 }}>{chat.msg}</span> {chat.unread > 0 && <span style={{ width: 20, height: 20, background: colors.success, color: '#fff', borderRadius: '50%', fontSize: '0.7rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>{chat.unread}</span>}</div>
-                           </div>
-                         </div>
-                       ))}
-                     </div>
+                      <div style={{ flex: 1, overflowY: 'auto' }}>
+                        {patientsList.slice(0, 10).map((patient, i) => (
+                          <div 
+                            key={patient.id} 
+                            onClick={() => {
+                              setActiveChat(patient);
+                              fetchMessages(patient.id);
+                            }}
+                            style={{ 
+                              padding: '16px 20px', 
+                              borderBottom: '1px solid rgba(0,0,0,0.03)', 
+                              display: 'flex', gap: 12, cursor: 'pointer', 
+                              background: activeChat?.id === patient.id ? '#fff' : 'transparent', 
+                              borderLeft: activeChat?.id === patient.id ? `4px solid ${colors.success}` : '4px solid transparent' 
+                            }}
+                          >
+                            <div style={{ width: 44, height: 44, borderRadius: '50%', background: colors.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '1.1rem' }}>{patient.name.charAt(0)}</div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                <span style={{ fontWeight: 600, fontSize: '1.1rem', color: colors.primary }}>{patient.name}</span>
+                                <span style={{ fontSize: '0.8rem', color: colors.textMuted, fontWeight: 600 }}>Agora</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                <span style={{ fontSize: '0.8rem', color: colors.accent, fontWeight: 700 }}>CPF: {patient.cpf || '---'}</span>
+                              </div>
+                              <div style={{ fontSize: '0.95rem', color: colors.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 160, fontWeight: 500 }}>Clique para ver as mensagens</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                   </div>
                   {/* Chat Area */}
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#f1f5f9', position: 'relative' }}>
                     <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.05, backgroundImage: 'url("https://www.transparenttextures.com/patterns/cubes.png")' }} />
                     <div style={{ padding: '20px 24px', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(0,0,0,0.05)', position: 'relative', zIndex: 2 }}>
                        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                         <div style={{ width: 48, height: 48, borderRadius: '50%', background: colors.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '1.2rem' }}>R</div>
-                         <div><div style={{ fontWeight: 700, color: colors.primary, fontSize: '1.1rem' }}>Ricardo Mendes</div><div style={{ fontSize: '0.8rem', color: colors.success, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 6, height: 6, background: colors.success, borderRadius: '50%' }} /> Em atendimento pela IA</div></div>
+                         <div style={{ width: 52, height: 52, borderRadius: '50%', background: colors.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: '1.3rem' }}>R</div>
+                         <div><div style={{ fontWeight: 600, color: colors.primary, fontSize: '1.2rem' }}>Ricardo Mendes</div><div style={{ fontSize: '0.9rem', color: colors.success, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 8, height: 8, background: colors.success, borderRadius: '50%' }} /> Em atendimento pela IA</div></div>
                        </div>
                        <button style={{ background: '#fff', color: colors.danger, border: `1px solid ${colors.danger}40`, padding: '10px 16px', borderRadius: 12, fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 4px 10px rgba(255, 82, 82, 0.1)', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
                          <UserCog size={18} /> Assumir Atendimento (Humano)
                        </button>
                     </div>
                     <div style={{ flex: 1, padding: 32, display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto', position: 'relative', zIndex: 2 }}>
-                       <div style={{ alignSelf: 'center', background: 'rgba(0,0,0,0.05)', padding: '6px 16px', borderRadius: 12, fontSize: '0.75rem', color: colors.textMuted, fontWeight: 700 }}>Hoje</div>
-                       <div style={{ alignSelf: 'flex-start', background: '#fff', padding: '16px 20px', borderRadius: '0 20px 20px 20px', maxWidth: '75%', boxShadow: '0 4px 10px rgba(0,0,0,0.02)', fontSize: '0.95rem', color: colors.primary, fontWeight: 500, lineHeight: 1.5 }}>
-                         Olá Ricardo, seu lembrete de consulta para hoje às 14:00 com Dr. Paulo. Confirma sua presença? <span style={{ display: 'block', fontSize: '0.7rem', color: colors.textMuted, marginTop: 8, textAlign: 'right', fontWeight: 600 }}>11:30</span>
-                       </div>
-                       <div style={{ alignSelf: 'flex-end', background: colors.success, color: '#fff', padding: '16px 20px', borderRadius: '20px 0 20px 20px', maxWidth: '75%', boxShadow: '0 4px 10px rgba(51, 217, 178, 0.2)', fontSize: '0.95rem', fontWeight: 500 }}>
-                         Chego em 5 minutos. <span style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(255,255,255,0.8)', marginTop: 8, textAlign: 'right', fontWeight: 600 }}>14:05</span>
-                       </div>
+                       {!activeChat ? (
+                         <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20, color: colors.textMuted }}>
+                           <MessageSquare size={64} opacity={0.2} />
+                           <div style={{ fontSize: '1.2rem', fontWeight: 600 }}>Selecione um paciente para iniciar o chat</div>
+                         </div>
+                       ) : messages.length === 0 ? (
+                         <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.textMuted }}>Nenhuma mensagem trocada ainda.</div>
+                       ) : (
+                         messages.map((m, idx) => (
+                           <div key={idx} style={{ 
+                             alignSelf: m.sender_type === 'patient' ? 'flex-start' : 'flex-end', 
+                             background: m.sender_type === 'patient' ? '#fff' : colors.success, 
+                             color: m.sender_type === 'patient' ? colors.primary : '#fff', 
+                             padding: '18px 22px', borderRadius: m.sender_type === 'patient' ? '0 20px 20px 20px' : '20px 0 20px 20px', 
+                             maxWidth: '75%', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', fontSize: '1.1rem', fontWeight: 500, lineHeight: 1.5 
+                           }}>
+                             {m.content}
+                             <span style={{ display: 'block', fontSize: '0.8rem', opacity: 0.7, marginTop: 8, textAlign: 'right', fontWeight: 600 }}>
+                               {new Date(m.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                             </span>
+                           </div>
+                         ))
+                       )}
                     </div>
                     <div style={{ padding: '20px 32px', background: '#fff', borderTop: '1px solid rgba(0,0,0,0.05)', position: 'relative', zIndex: 2 }}>
                        <div style={{ display: 'flex', background: '#f8fafc', padding: '10px 10px 10px 24px', borderRadius: 24, border: '1px solid rgba(0,0,0,0.05)' }}>
@@ -793,15 +1108,15 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                   
                   {/* Automações Ativas */}
                   <div style={{ background: '#fff', borderRadius: 28, padding: '32px', border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 15px 35px rgba(0,0,0,0.02)' }}>
-                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: colors.primary, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <h3 style={{ fontSize: '1.4rem', fontWeight: 600, color: colors.primary, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10 }}>
                       <Zap size={20} color={colors.accent} /> Motores de Automação
                     </h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                       {automations.map((auto) => (
                         <div key={auto.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: auto.active ? `${colors.success}10` : '#f8fafc', borderRadius: 16, border: `1px solid ${auto.active ? colors.success + '30' : 'rgba(0,0,0,0.05)'}` }}>
                           <div>
-                            <div style={{ fontWeight: 700, fontSize: '0.95rem', color: auto.active ? colors.primary : colors.textMuted }}>{auto.title}</div>
-                            <div style={{ fontSize: '0.8rem', fontWeight: 500, color: colors.textMuted, marginTop: 4 }}>{auto.desc}</div>
+                            <div style={{ fontWeight: 600, fontSize: '1.1rem', color: auto.active ? colors.primary : colors.textMuted }}>{auto.title}</div>
+                            <div style={{ fontSize: '0.95rem', fontWeight: 500, color: colors.textMuted, marginTop: 4 }}>{auto.desc}</div>
                           </div>
                           <div 
                             onClick={() => setAutomations(prev => prev.map(a => a.id === auto.id ? { ...a, active: !a.active } : a))}
@@ -817,8 +1132,8 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                   {/* Log em Tempo Real */}
                   <div style={{ background: '#130f40', borderRadius: 28, padding: '32px', color: '#fff', boxShadow: '0 20px 40px rgba(19,15,64,0.3)', position: 'relative', overflow: 'hidden' }}>
                     <div style={{ position: 'absolute', top: 0, right: 0, width: 200, height: 200, background: 'radial-gradient(circle, rgba(126, 214, 223, 0.15) 0%, rgba(0,0,0,0) 70%)', transform: 'translate(50%, -50%)' }} />
-                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Activity size={20} color={colors.accent} /> Log do Cérebro Ativo
+                    <h3 style={{ fontSize: '1.4rem', fontWeight: 600, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <Zap size={20} color={colors.accent} /> Log do Cérebro Ativo
                     </h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, position: 'relative', zIndex: 2 }}>
                       {[
@@ -832,7 +1147,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                           <div style={{ flex: 1, paddingBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                               <div style={{ width: 8, height: 8, borderRadius: '50%', background: log.status === 'success' ? colors.success : colors.warn, boxShadow: `0 0 10px ${log.status === 'success' ? colors.success : colors.warn}` }} />
-                              <span style={{ fontSize: '0.9rem', fontWeight: 500, color: 'rgba(255,255,255,0.9)' }}>{log.text}</span>
+                              <span style={{ fontSize: '1rem', fontWeight: 500, color: 'rgba(255,255,255,0.9)' }}>{log.text}</span>
                             </div>
                           </div>
                         </div>
@@ -891,16 +1206,16 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                     { label: 'Perdas Financeiras', value: 'R$ 1.200', trend: '-R$ 400', color: colors.danger },
                   ].map((stat, i) => (
                     <div key={i} style={{ background: '#fff', borderRadius: 24, padding: '24px', border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 10px 30px rgba(0,0,0,0.02)' }}>
-                      <div style={{ fontSize: '0.9rem', fontWeight: 600, color: colors.textMuted, marginBottom: 12 }}>{stat.label}</div>
-                      <div style={{ fontSize: '2rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>{stat.value}</div>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 500, color: stat.color }}>{stat.trend} em relação ao mês passado</div>
+                      <div style={{ fontSize: '20px', fontWeight: 600, color: colors.textMuted, marginBottom: 12 }}>{stat.label}</div>
+                      <div style={{ fontSize: '2.2rem', fontWeight: 600, color: colors.primary, marginBottom: 8 }}>{stat.value}</div>
+                      <div style={{ fontSize: '0.95rem', fontWeight: 600, color: stat.color }}>{stat.trend} em relação ao mês passado</div>
                     </div>
                   ))}
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 32 }}>
                   <div style={{ background: '#fff', borderRadius: 28, padding: '32px', border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 10px 30px rgba(0,0,0,0.02)' }}>
-                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: colors.primary, marginBottom: 32 }}>Receita Diária (Semana)</h3>
+                    <h3 style={{ fontSize: '1.5rem', fontWeight: 600, color: colors.primary, marginBottom: 32 }}>Receita Diária (Semana)</h3>
                     <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '200px', padding: '0 20px' }}>
                       {[40, 70, 45, 90, 65, 80, 50].map((h, i) => (
                         <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
@@ -912,7 +1227,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                   </div>
 
                   <div style={{ background: '#fff', borderRadius: 28, padding: '32px', border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 10px 30px rgba(0,0,0,0.02)' }}>
-                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: colors.primary, marginBottom: 32, textAlign: 'center' }}>Distribuição de Planos</h3>
+                    <h3 style={{ fontSize: '1.5rem', fontWeight: 600, color: colors.primary, marginBottom: 32, textAlign: 'center' }}>Distribuição de Planos</h3>
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
                       <div style={{ position: 'relative', width: 160, height: 160 }}>
                         <svg viewBox="0 0 100 100">
@@ -927,9 +1242,9 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                       </div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 500, color: colors.textMuted }}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 8, height: 8, borderRadius: '50%', background: colors.success }} /> Particular</span> <span>72%</span></div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 500, color: colors.textMuted }}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 8, height: 8, borderRadius: '50%', background: colors.accent }} /> Convênio SulAmérica</span> <span>20%</span></div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 500, color: colors.textMuted }}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 8, height: 8, borderRadius: '50%', background: colors.warn }} /> Outros</span> <span>8%</span></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', fontWeight: 600, color: colors.primary }}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: colors.success }} /> Particular</span> <span>72%</span></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', fontWeight: 600, color: colors.primary }}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: colors.accent }} /> Convênio SulAmérica</span> <span>20%</span></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', fontWeight: 600, color: colors.primary }}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: colors.warn }} /> Outros</span> <span>8%</span></div>
                     </div>
                   </div>
                 </div>
@@ -940,42 +1255,42 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
               <motion.div key="settings" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
                 
                 <div style={{ background: '#fff', borderRadius: 32, padding: 32, border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 15px 40px rgba(0,0,0,0.03)' }}>
-                  <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: colors.primary, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <h3 style={{ fontSize: '1.5rem', fontWeight: 600, color: colors.primary, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
                     <Settings size={24} color={colors.accent} /> Perfil da Clínica
                   </h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: colors.textMuted, marginBottom: 8 }}>Nome da Unidade</label>
+                      <label style={{ display: 'block', fontSize: '20px', fontWeight: 600, color: colors.primary, marginBottom: 8 }}>Nome da Unidade</label>
                       <input defaultValue="Solara Connect - Matriz" style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
                     </div>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: colors.textMuted, marginBottom: 8 }}>E-mail de Notificações</label>
+                      <label style={{ display: 'block', fontSize: '20px', fontWeight: 600, color: colors.primary, marginBottom: 8 }}>E-mail de Notificações</label>
                       <input defaultValue="axoshub.solara@gmail.com" style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: colors.textMuted, marginBottom: 8 }}>Telefone Comercial</label>
+                        <label style={{ display: 'block', fontSize: '20px', fontWeight: 600, color: colors.primary, marginBottom: 8 }}>Telefone Comercial</label>
                         <input defaultValue="(11) 99999-0000" style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: colors.textMuted, marginBottom: 8 }}>CNPJ</label>
+                        <label style={{ display: 'block', fontSize: '20px', fontWeight: 600, color: colors.primary, marginBottom: 8 }}>CNPJ</label>
                         <input defaultValue="00.000.000/0001-00" style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
                       </div>
                     </div>
-                    <button style={{ marginTop: 12, background: colors.primary, color: '#fff', border: 'none', padding: '14px', borderRadius: 12, fontWeight: 700, cursor: 'pointer' }}>Salvar Alterações</button>
+                    <button style={{ marginTop: 12, background: colors.primary, color: '#fff', border: 'none', padding: '14px', borderRadius: 12, fontWeight: 600, fontSize: '1.1rem', cursor: 'pointer' }}>Salvar Alterações</button>
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
                   <div style={{ background: `linear-gradient(135deg, ${colors.primary} 0%, #1e1b4b 100%)`, borderRadius: 32, padding: 32, color: '#fff' }}>
-                    <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <h3 style={{ fontSize: '1.4rem', fontWeight: 600, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
                       <Zap size={20} color={colors.accent} /> Cérebro IA (Solara)
                     </h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
-                          <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>Automação de WhatsApp</div>
-                          <div style={{ fontSize: '0.75rem', opacity: 0.6 }}>IA responde agendamentos sozinha</div>
+                          <div style={{ fontWeight: 600, fontSize: '1.1rem' }}>Automação de WhatsApp</div>
+                          <div style={{ fontSize: '0.85rem', opacity: 0.8 }}>IA responde agendamentos sozinha</div>
                         </div>
                         <div style={{ width: 44, height: 24, background: colors.success, borderRadius: 12, position: 'relative', cursor: 'pointer' }}>
                           <div style={{ width: 18, height: 18, background: '#fff', borderRadius: '50%', position: 'absolute', right: 3, top: 3 }} />
@@ -983,8 +1298,8 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
-                          <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>Análise de Churn</div>
-                          <div style={{ fontSize: '0.75rem', opacity: 0.6 }}>Detectar pacientes em risco</div>
+                          <div style={{ fontWeight: 600, fontSize: '1.1rem' }}>Análise de Churn</div>
+                          <div style={{ fontSize: '0.85rem', opacity: 0.8 }}>Detectar pacientes em risco</div>
                         </div>
                         <div style={{ width: 44, height: 24, background: colors.success, borderRadius: 12, position: 'relative', cursor: 'pointer' }}>
                           <div style={{ width: 18, height: 18, background: '#fff', borderRadius: '50%', position: 'absolute', right: 3, top: 3 }} />
@@ -1017,42 +1332,88 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(19, 15, 64, 0.6)', backdropFilter: 'blur(10px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} style={{ background: '#fff', width: '100%', maxWidth: '500px', borderRadius: 32, padding: '40px', position: 'relative', boxShadow: '0 30px 60px -12px rgba(0,0,0,0.3)' }}>
               <button onClick={() => setShowModal(false)} style={{ position: 'absolute', top: 24, right: 24, background: '#f1f5f9', border: 'none', borderRadius: '50%', padding: 10, cursor: 'pointer' }}><X size={20} color={colors.primary} /></button>
-              <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: colors.primary, marginBottom: 8 }}>Novo Agendamento</h2>
-              <p style={{ color: colors.textMuted, marginBottom: 32 }}>Preencha os dados do paciente e confirme o consentimento LGPD.</p>
+              <h2 style={{ fontSize: '1.8rem', fontWeight: 600, color: colors.primary, marginBottom: 8 }}>Novo Agendamento</h2>
+              <p style={{ color: colors.textMuted, marginBottom: 32, fontSize: '1.1rem' }}>Preencha os dados do paciente e confirme o consentimento LGPD.</p>
               <form onSubmit={handleSaveAppointment} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>Nome Completo</label>
-                  <input type="text" required value={newPatient.name} onChange={e => setNewPatient({...newPatient, name: e.target.value})} placeholder="Ex: João Silva" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                  <label style={{ display: 'block', fontSize: '20px', fontWeight: 600, color: colors.primary, marginBottom: 8 }}>Nome Completo</label>
+                  <input type="text" required value={newPatient.name} onChange={e => setNewPatient({...newPatient, name: e.target.value})} placeholder="Ex: João Silva" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', fontSize: '1.1rem' }} />
                 </div>
                 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>WhatsApp / Telefone</label>
-                    <input type="text" value={newPatient.phone} onChange={e => setNewPatient({...newPatient, phone: e.target.value})} placeholder="(00) 00000-0000" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                    <label style={{ display: 'block', fontSize: '20px', fontWeight: 600, color: colors.primary, marginBottom: 8 }}>WhatsApp / Telefone</label>
+                    <input 
+                      type="text" 
+                      value={newPatient.phone} 
+                      onChange={e => {
+                        let v = e.target.value.replace(/\D/g, '');
+                        if (v.length <= 11) {
+                          v = v.replace(/^(\d{2})(\d)/g, "($1) $2");
+                          v = v.replace(/(\d{5})(\d)/, "$1-$2");
+                        }
+                        setNewPatient({...newPatient, phone: v});
+                      }} 
+                      placeholder="(00) 00000-0000" 
+                      style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', fontSize: '1.1rem' }} 
+                    />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>Idade</label>
-                    <input type="number" value={newPatient.age} onChange={e => setNewPatient({...newPatient, age: e.target.value})} placeholder="Ex: 30" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                    <label style={{ display: 'block', fontSize: '20px', fontWeight: 600, color: colors.primary, marginBottom: 8 }}>CPF</label>
+                    <input 
+                      type="text" 
+                      value={newPatient.cpf} 
+                      onChange={e => {
+                        let v = e.target.value.replace(/\D/g, '');
+                        v = v.replace(/(\d{3})(\d)/, "$1.$2");
+                        v = v.replace(/(\d{3})(\d)/, "$1.$2");
+                        v = v.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+                        setNewPatient({...newPatient, cpf: v.substring(0, 14)});
+                      }} 
+                      placeholder="000.000.000-00" 
+                      style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', fontSize: '1.1rem' }} 
+                    />
                   </div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>Data</label>
-                    <input type="date" required value={newAppointment.date} onChange={e => setNewAppointment({...newAppointment, date: e.target.value})} style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                    <label style={{ display: 'block', fontSize: '20px', fontWeight: 600, color: colors.primary, marginBottom: 8 }}>Idade</label>
+                    <input type="number" value={newPatient.age} onChange={e => setNewPatient({...newPatient, age: e.target.value})} placeholder="Ex: 30" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', fontSize: '1.15rem' }} />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>Horário</label>
-                    <input type="time" required value={newAppointment.time} onChange={e => setNewAppointment({...newAppointment, time: e.target.value})} style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                    <label style={{ display: 'block', fontSize: '20px', fontWeight: 600, color: colors.primary, marginBottom: 8 }}>Data</label>
+                    <input type="date" required value={newAppointment.date} onChange={e => setNewAppointment({...newAppointment, date: e.target.value})} style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', fontSize: '1.15rem' }} />
                   </div>
                 </div>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>Especialista</label>
-                  <select value={newAppointment.doctor_id} onChange={e => setNewAppointment({...newAppointment, doctor_id: e.target.value})} style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', background: '#fff' }}>
-                    <option value="">Selecione um médico...</option>
-                    {specialistsList.map(s => <option key={s.id} value={s.id}>{s.name} ({s.specialty || 'Geral'})</option>)}
-                  </select>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '20px', fontWeight: 600, color: colors.primary, marginBottom: 8 }}>Horário</label>
+                    <input type="time" required value={newAppointment.time} onChange={e => setNewAppointment({...newAppointment, time: e.target.value})} style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', fontSize: '1.15rem' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '20px', fontWeight: 600, color: colors.primary, marginBottom: 8 }}>Especialista</label>
+                    <select value={newAppointment.doctor_id} onChange={e => setNewAppointment({...newAppointment, doctor_id: e.target.value})} style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', background: '#fff', fontSize: '1.15rem' }}>
+                      <option value="">Selecione...</option>
+                      {specialistsList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '20px', fontWeight: 600, color: colors.primary, marginBottom: 8 }}>Plano / Convênio</label>
+                    <select value={newPatient.insurance} onChange={e => setNewPatient({...newPatient, insurance: e.target.value})} style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', background: '#fff', fontSize: '1.15rem' }}>
+                      <option value="Particular">Particular</option>
+                      <option value="SulAmérica">SulAmérica</option>
+                      <option value="Bradesco Saúde">Bradesco Saúde</option>
+                      <option value="Unimed">Unimed</option>
+                      <option value="Amil">Amil</option>
+                      <option value="Outros">Outros</option>
+                    </select>
+                  </div>
+                  <div /> {/* Espaço vazio para simetria */}
                 </div>
 
                 <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: '#f8fafc', padding: '16px', borderRadius: 16, border: '1px solid #e2e8f0' }}>
@@ -1077,33 +1438,33 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(19, 15, 64, 0.6)', backdropFilter: 'blur(10px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} style={{ background: '#fff', width: '100%', maxWidth: '500px', borderRadius: 32, padding: '40px', position: 'relative', boxShadow: '0 30px 60px -12px rgba(0,0,0,0.3)' }}>
               <button onClick={() => setShowSpecialistModal(false)} style={{ position: 'absolute', top: 24, right: 24, background: '#f1f5f9', border: 'none', borderRadius: '50%', padding: 10, cursor: 'pointer' }}><X size={20} color={colors.primary} /></button>
-              <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: colors.primary, marginBottom: 8 }}>Novo Especialista</h2>
-              <p style={{ color: colors.textMuted, marginBottom: 32 }}>Adicione um novo médico à sua clínica.</p>
+              <h2 style={{ fontSize: '1.8rem', fontWeight: 600, color: colors.primary, marginBottom: 8 }}>Novo Especialista</h2>
+              <p style={{ color: colors.textMuted, marginBottom: 32, fontSize: '1.1rem' }}>Adicione um novo médico à sua clínica.</p>
               <form onSubmit={handleSaveSpecialist} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>Nome Completo</label>
-                  <input type="text" required value={newSpecialist.name} onChange={e => setNewSpecialist({...newSpecialist, name: e.target.value})} placeholder="Ex: Dr. Paulo Silva" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                  <label style={{ display: 'block', fontSize: '20px', fontWeight: 600, color: colors.primary, marginBottom: 8 }}>Nome Completo</label>
+                  <input type="text" required value={newSpecialist.name} onChange={e => setNewSpecialist({...newSpecialist, name: e.target.value})} placeholder="Ex: Dr. Paulo Silva" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', fontSize: '1.15rem' }} />
                 </div>
                 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>Especialidade</label>
-                    <input type="text" required value={newSpecialist.specialty} onChange={e => setNewSpecialist({...newSpecialist, specialty: e.target.value})} placeholder="Ex: Ortodontia" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                    <label style={{ display: 'block', fontSize: '20px', fontWeight: 600, color: colors.primary, marginBottom: 8 }}>Especialidade</label>
+                    <input type="text" required value={newSpecialist.specialty} onChange={e => setNewSpecialist({...newSpecialist, specialty: e.target.value})} placeholder="Ex: Ortodontia" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', fontSize: '1.15rem' }} />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>CRM (Opcional)</label>
-                    <input type="text" value={newSpecialist.crm} onChange={e => setNewSpecialist({...newSpecialist, crm: e.target.value})} placeholder="Ex: 12345-SP" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                    <label style={{ display: 'block', fontSize: '20px', fontWeight: 600, color: colors.primary, marginBottom: 8 }}>CRM (Opcional)</label>
+                    <input type="text" value={newSpecialist.crm} onChange={e => setNewSpecialist({...newSpecialist, crm: e.target.value})} placeholder="Ex: 12345-SP" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', fontSize: '1.15rem' }} />
                   </div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>E-mail (Opcional)</label>
-                    <input type="email" value={newSpecialist.email} onChange={e => setNewSpecialist({...newSpecialist, email: e.target.value})} placeholder="Ex: doutor@clinica.com" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                    <label style={{ display: 'block', fontSize: '20px', fontWeight: 600, color: colors.primary, marginBottom: 8 }}>E-mail (Opcional)</label>
+                    <input type="email" value={newSpecialist.email} onChange={e => setNewSpecialist({...newSpecialist, email: e.target.value})} placeholder="Ex: doutor@clinica.com" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', fontSize: '1.15rem' }} />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: colors.primary, marginBottom: 8 }}>WhatsApp / Emergência</label>
-                    <input type="text" value={newSpecialist.phone} onChange={e => setNewSpecialist({...newSpecialist, phone: e.target.value})} placeholder="(00) 00000-0000" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none' }} />
+                    <label style={{ display: 'block', fontSize: '20px', fontWeight: 600, color: colors.primary, marginBottom: 8 }}>WhatsApp / Emergência</label>
+                    <input type="text" value={newSpecialist.phone} onChange={e => setNewSpecialist({...newSpecialist, phone: e.target.value})} placeholder="(00) 00000-0000" style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', fontSize: '1.15rem' }} />
                   </div>
                 </div>
 
@@ -1152,6 +1513,58 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
         )}
       </AnimatePresence>
 
+      {/* MODAL: SELECIONAR PACIENTE PARA PRONTUÁRIO */}
+      <AnimatePresence>
+        {showRecordModal && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(19, 15, 64, 0.6)', backdropFilter: 'blur(10px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} style={{ background: '#fff', width: '100%', maxWidth: '500px', borderRadius: 32, padding: '40px', position: 'relative', boxShadow: '0 30px 60px -12px rgba(0,0,0,0.3)' }}>
+              <button onClick={() => setShowRecordModal(false)} style={{ position: 'absolute', top: 24, right: 24, background: '#f1f5f9', border: 'none', borderRadius: '50%', padding: 10, cursor: 'pointer' }}><X size={20} color={colors.primary} /></button>
+              <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: colors.primary, marginBottom: 8 }}>Selecionar Paciente</h2>
+              <p style={{ color: colors.textMuted, marginBottom: 24 }}>Escolha o paciente para iniciar a evolução clínica.</p>
+              
+              <div style={{ position: 'relative', marginBottom: 20 }}>
+                <Search size={18} color={colors.textMuted} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)' }} />
+                <input 
+                  placeholder="Buscar por nome ou CPF..." 
+                  value={patientSearch}
+                  onChange={(e) => setPatientSearch(e.target.value)}
+                  style={{ width: '100%', padding: '14px 16px 14px 48px', borderRadius: 14, border: '1px solid #e2e8f0', outline: 'none', background: '#f8fafc' }} 
+                />
+              </div>
+
+              <div style={{ maxHeight: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {patientsList
+                  .filter(p => p.name.toLowerCase().includes(patientSearch.toLowerCase()))
+                  .map(patient => (
+                  <div 
+                    key={patient.id}
+                    onClick={() => {
+                      setSelectedPatientId(patient.id);
+                      setShowRecordModal(false);
+                      setPatientSearch("");
+                    }}
+                    style={{ padding: '16px', borderRadius: 16, border: '1px solid #f1f5f9', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, transition: 'all 0.2s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: colors.accent + '20', color: colors.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                      {patient.name.charAt(0)}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, color: colors.primary }}>{patient.name}</div>
+                      <div style={{ fontSize: '0.8rem', color: colors.textMuted }}>{patient.insurance || 'Particular'}</div>
+                    </div>
+                  </div>
+                ))}
+                {patientsList.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: '20px', color: colors.textMuted }}>Nenhum paciente cadastrado.</div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* MODAL: ASSINATURA DIGITAL */}
       <AnimatePresence>
         {showSignatureModal && (
@@ -1163,16 +1576,17 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                 <Check size={32} color={colors.primary} />
               </div>
               
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: colors.primary, marginBottom: 12 }}>Assinar Prontuário</h2>
-              <p style={{ color: colors.textMuted, marginBottom: 32, fontSize: '0.9rem', lineHeight: 1.5 }}>
+              <h2 style={{ fontSize: '1.8rem', fontWeight: 600, color: colors.primary, marginBottom: 12 }}>Assinar Prontuário</h2>
+              <p style={{ color: colors.textMuted, marginBottom: 32, fontSize: '1.1rem', lineHeight: 1.5 }}>
                 Ao assinar digitalmente, este prontuário será fechado de acordo com as normas do CFM e LGPD.
               </p>
               
-              <button onClick={() => {
-                  alert('Prontuário assinado e salvo com sucesso!');
-                  setShowSignatureModal(false);
-                }} style={{ width: '100%', background: colors.primary, color: '#fff', border: 'none', padding: '16px', borderRadius: 14, fontWeight: 700, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-                Confirmar Assinatura
+              <button 
+                onClick={handleSaveMedicalRecord} 
+                disabled={isLoading}
+                style={{ width: '100%', background: colors.primary, opacity: isLoading ? 0.7 : 1, color: '#fff', border: 'none', padding: '16px', borderRadius: 14, fontWeight: 600, fontSize: '1.1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}
+              >
+                {isLoading ? 'Salvando...' : 'Confirmar Assinatura'}
               </button>
             </motion.div>
           </div>
@@ -1207,15 +1621,15 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
         </AnimatePresence>
         <AnimatePresence>
           {showSolara && (
-            <motion.div initial={{ opacity: 0, y: 20, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.9 }} style={{ width: 350, height: 500, background: '#fff', borderRadius: 28, boxShadow: '0 25px 60px -12px rgba(19, 15, 64, 0.4)', border: '1px solid rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <motion.div initial={{ opacity: 0, y: 20, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.9 }} style={{ width: 420, height: 570, background: '#fff', borderRadius: 28, boxShadow: '0 25px 60px -12px rgba(19, 15, 64, 0.4)', border: '1px solid rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               <div style={{ background: colors.primary, padding: '24px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div style={{ width: 40, height: 40, background: colors.accent, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Zap size={24} color={colors.primary} />
                   </div>
                   <div>
-                    <div style={{ fontWeight: 800, fontSize: '1rem' }}>Solara AI</div>
-                    <div style={{ fontSize: '0.7rem', color: colors.success, fontWeight: 700 }}>Online e Atenta</div>
+                    <div style={{ fontWeight: 600, fontSize: '1.2rem' }}>Solara AI</div>
+                    <div style={{ fontSize: '0.9rem', color: colors.success, fontWeight: 600 }}>Online e Atenta</div>
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
@@ -1226,7 +1640,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
               
               <div style={{ flex: 1, padding: 20, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, background: '#f8fafc' }}>
                 {solaraMessages.map((m, i) => (
-                  <div key={i} style={{ alignSelf: m.role === 'assistant' ? 'flex-start' : 'flex-end', background: m.role === 'assistant' ? '#fff' : colors.primary, color: m.role === 'assistant' ? colors.primary : '#fff', padding: '12px 16px', borderRadius: m.role === 'assistant' ? '0 16px 16px 16px' : '16px 16px 0 16px', fontSize: '0.9rem', maxWidth: '85%', boxShadow: '0 4px 10px rgba(0,0,0,0.02)', border: m.role === 'assistant' ? '1px solid rgba(0,0,0,0.05)' : 'none' }}>
+                  <div key={i} style={{ alignSelf: m.role === 'assistant' ? 'flex-start' : 'flex-end', background: m.role === 'assistant' ? '#fff' : colors.primary, color: m.role === 'assistant' ? colors.primary : '#fff', padding: '12px 16px', borderRadius: m.role === 'assistant' ? '0 16px 16px 16px' : '16px 16px 0 16px', fontSize: '1.1rem', fontWeight: 500, maxWidth: '85%', boxShadow: '0 4px 10px rgba(0,0,0,0.02)', border: m.role === 'assistant' ? '1px solid rgba(0,0,0,0.05)' : 'none' }}>
                     {m.content}
                   </div>
                 ))}
@@ -1238,7 +1652,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                   onChange={e => setSolaraInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSolaraSend()}
                   placeholder="Digite sua dúvida..." 
-                  style={{ flex: 1, padding: '12px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', fontSize: '0.9rem' }} 
+                  style={{ flex: 1, padding: '12px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', fontSize: '1.1rem' }} 
                 />
                 <button onClick={handleSolaraSend} style={{ background: colors.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Send size={20} />

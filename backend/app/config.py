@@ -37,4 +37,11 @@ class Settings:
     # Frontend URL (for checkout redirects)
     FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
+    # Stripe
+    STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+    STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    
+    # Stripe Price IDs
+    STRIPE_PRICE_AVANCADO = os.getenv("STRIPE_PRICE_AVANCADO", "")
+
 settings = Settings()

@@ -13,8 +13,8 @@ from app.config import settings
 router = APIRouter(prefix="/api/stripe", tags=["stripe"])
 
 # Configurar Stripe
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
+stripe.api_key = settings.STRIPE_SECRET_KEY
+webhook_secret = settings.STRIPE_WEBHOOK_SECRET
 supabase_service_key = settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_KEY
 supabase_admin = create_client(settings.SUPABASE_URL, supabase_service_key) if settings.SUPABASE_URL and supabase_service_key else None
 
