@@ -52,7 +52,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
     doctor_id: ''
   });
   const [newSpecialist, setNewSpecialist] = useState({
-    name: '', email: '', specialty: '', crm: '', phone: ''
+    name: '', email: '', specialty: '', crm: '', phone: '', active: true
   });
   const [automations, setAutomations] = useState([
     { id: 1, title: 'Lembrete Pré-Consulta', desc: 'Envia WhatsApp 2h antes para confirmar.', active: true },
@@ -146,7 +146,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
 
     setAppointmentsList(prev => [...prev, optimisticApp]);
     setShowModal(false);
-    const resetPatient = { name: '', phone: '', age: '', insurance: 'Particular', lgpd_consent: false };
+    const resetPatient = { name: '', phone: '', age: '', insurance: 'Particular', cpf: '', lgpd_consent: false };
     const resetApp = { date: new Date().toISOString().split('T')[0], time: '09:00', doctor_id: '' };
     setNewPatient(resetPatient);
     setNewAppointment(resetApp);
@@ -673,10 +673,10 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                       {[
-                        { name: 'Ricardo Mendes', lastVisit: '120 dias atrás', procedure: 'Implante Dentário', value: 'R$ 4.500', risk: 'Alto' },
-                        { name: 'Julia Rocha', lastVisit: '155 dias atrás', procedure: 'Harmonização Facial', value: 'R$ 2.800', risk: 'Crítico' },
-                        { name: 'Marcos Braz', lastVisit: '95 dias atrás', procedure: 'Limpeza e Profilaxia', value: 'R$ 350', risk: 'Médio' },
-                        { name: 'Luciana Costa', lastVisit: '210 dias atrás', procedure: 'Clareamento Laser', value: 'R$ 1.200', risk: 'Crítico' },
+                        { name: 'Ricardo Mendes', lastVisit: '120 dias atrás', procedure: 'Implante Dentário', value: 'R$ 4.500', risk: 'Alto', cpf: '123.456.789-01' },
+                        { name: 'Julia Rocha', lastVisit: '155 dias atrás', procedure: 'Harmonização Facial', value: 'R$ 2.800', risk: 'Crítico', cpf: '987.654.321-02' },
+                        { name: 'Marcos Braz', lastVisit: '95 dias atrás', procedure: 'Limpeza e Profilaxia', value: 'R$ 350', risk: 'Médio', cpf: '456.789.123-03' },
+                        { name: 'Luciana Costa', lastVisit: '210 dias atrás', procedure: 'Clareamento Laser', value: 'R$ 1.200', risk: 'Crítico', cpf: '321.654.987-04' },
                       ].map((p, i) => (
                         <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '16px 20px', background: '#f8fafc', borderRadius: 20, border: '1px solid transparent', transition: 'all 0.2s', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.borderColor = colors.accent}>
                           <div style={{ width: 44, height: 44, borderRadius: 14, background: colors.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, marginRight: 16 }}>{p.name.charAt(0)}</div>
@@ -1092,8 +1092,20 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                     </div>
                     <div style={{ padding: '20px 32px', background: '#fff', borderTop: '1px solid rgba(0,0,0,0.05)', position: 'relative', zIndex: 2 }}>
                        <div style={{ display: 'flex', background: '#f8fafc', padding: '10px 10px 10px 24px', borderRadius: 24, border: '1px solid rgba(0,0,0,0.05)' }}>
-                         <input type="text" placeholder="Escreva uma mensagem..." style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: '1rem', fontWeight: 500 }} />
-                         <button style={{ width: 48, height: 48, borderRadius: 20, background: colors.primary, color: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}><Send size={20} /></button>
+                         <input 
+                           type="text" 
+                           placeholder="Escreva uma mensagem..." 
+                           style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: '1rem', fontWeight: 500 }} 
+                           value={newMessage}
+                           onChange={(e) => setNewMessage(e.target.value)}
+                           onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                         />
+                         <button 
+                           onClick={handleSendMessage}
+                           style={{ width: 48, height: 48, borderRadius: 20, background: colors.primary, color: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}
+                         >
+                           <Send size={20} />
+                         </button>
                        </div>
                     </div>
                   </div>
