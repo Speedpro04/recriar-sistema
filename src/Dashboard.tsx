@@ -1023,7 +1023,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                   <div style={{ width: 320, background: '#f8fafc', borderRight: '1px solid rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column' }}>
                      <div style={{ padding: 20, borderBottom: '1px solid rgba(0,0,0,0.05)' }}><input placeholder="Buscar conversa..." style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: 'none', background: '#e2e8f0', outline: 'none', fontSize: '0.9rem', fontWeight: 500 }}/></div>
                       <div style={{ flex: 1, overflowY: 'auto' }}>
-                        {patientsList.slice(0, 10).map((patient, i) => (
+                        {patientsList.slice(0, 10).map((patient) => (
                           <div 
                             key={patient.id} 
                             onClick={() => {
