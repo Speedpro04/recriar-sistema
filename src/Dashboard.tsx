@@ -1149,7 +1149,13 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                     </div>
 
                     {/* Footer / Input */}
-                    <div style={{ padding: '10px 16px', background: '#f0f2f5', display: 'flex', alignItems: 'center', gap: 12, position: 'relative', zIndex: 10 }}>
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }}
+                      style={{ padding: '10px 16px', background: '#f0f2f5', display: 'flex', alignItems: 'center', gap: 12, position: 'relative', zIndex: 10 }}
+                    >
                        <div style={{ flex: 1, background: '#fff', borderRadius: 8, padding: '4px 12px', display: 'flex', alignItems: 'center', boxShadow: '0 1px 1px rgba(0,0,0,0.05)' }}>
                          <input 
                            type="text" 
@@ -1158,22 +1164,16 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                            style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: '1rem', padding: '9px 0', color: '#3b4a54' }} 
                            value={newMessage}
                            onChange={(e) => setNewMessage(e.target.value)}
-                           onKeyDown={(e) => {
-                             if (e.key === 'Enter' || e.code === 'Enter') {
-                               e.preventDefault();
-                               handleSendMessage();
-                             }
-                           }}
                          />
                        </div>
                        <button 
-                         onClick={handleSendMessage}
+                         type="submit"
                          disabled={!activeChat}
                          style={{ width: 45, height: 45, borderRadius: '50%', background: 'transparent', color: activeChat ? '#54656f' : '#cbd5e1', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                        >
                          <Send size={24} />
                        </button>
-                    </div>
+                    </form>
                   </div>
                 </div>
               </motion.div>
