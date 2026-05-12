@@ -167,7 +167,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
               Solara Connect: <br/>
               <span style={{ position: 'relative', color: colors.primary }}>
                 Automação Via WhatsApp.
-                <svg style={{ position: 'absolute', bottom: 10, left: 0, width: '100%', height: 12, zIndex: -1 }} viewBox="0 0 300 12" preserveAspectRatio="none">
+                <svg style={{ position: 'absolute', bottom: 2, left: 0, width: '100%', height: 12, zIndex: -1 }} viewBox="0 0 300 12" preserveAspectRatio="none">
                   <path d="M0 6 Q 150 12 300 6" fill="none" stroke={colors.btnSuccess} strokeWidth="12" strokeLinecap="round"/>
                 </svg>
               </span>
