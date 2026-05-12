@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://solaraconnect.com.br/sitemap.xml

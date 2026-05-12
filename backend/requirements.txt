@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+celery
+redis
+polars
+supabase
+openai
+python-dotenv
+pydantic
+stripe
