@@ -163,7 +163,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
               Software para Gestão de Clínicas e Consultórios
             </motion.div>
             
-            <motion.h1 variants={fadeInUp} style={{ fontSize: '40px', fontWeight: '800', lineHeight: '1.1', marginBottom: 32, letterSpacing: '-0.04em', color: colors.primary }}>
+            <motion.h1 variants={fadeInUp} style={{ fontSize: '46px', fontWeight: '800', lineHeight: '1.1', marginBottom: 32, letterSpacing: '-0.04em', color: colors.primary }}>
               Solara Connect: <br/>
               <span style={{ position: 'relative', color: colors.primary }}>
                 Automação Via WhatsApp.
