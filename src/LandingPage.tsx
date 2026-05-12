@@ -26,6 +26,10 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  const handleWhatsAppClick = () => {
+    window.open('https://wa.me/5512978138934?text=Olá,%20gostaria%20de%20saber%20mais%20sobre%20o%20Solara%20Connect!', '_blank');
+  };
   const colors = {
     primary: '#130f40',
     bg: '#ffffff',
@@ -179,7 +183,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
             
             <motion.div variants={fadeInUp} style={{ display: 'flex', justifyContent: 'center', gap: 24 }}>
               <motion.button 
-                onClick={onNavigateToLogin}
+                onClick={handleWhatsAppClick}
                 whileHover={{ scale: 1.03, y: -2 }}
                 whileTap={{ scale: 0.97 }}
                 style={{ backgroundColor: colors.btnSuccess, color: colors.primary, border: 'none', padding: '20px 40px', borderRadius: '16px', fontSize: '1.1rem', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, boxShadow: `0 20px 40px ${colors.btnSuccess}40` }}
@@ -187,7 +191,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
                 Agendar Demonstração <ArrowRight size={20} />
               </motion.button>
               <motion.button 
-                onClick={onNavigateToLogin}
+                onClick={() => document.getElementById('solucoes')?.scrollIntoView({ behavior: 'smooth' })}
                 whileHover={{ scale: 1.03, backgroundColor: colors.cardBg }}
                 whileTap={{ scale: 0.97 }}
                 style={{ backgroundColor: 'transparent', color: colors.primary, border: `2px solid ${colors.cardBorder}`, padding: '20px 40px', borderRadius: '16px', fontSize: '1.1rem', fontWeight: '600', cursor: 'pointer' }}
@@ -461,7 +465,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
               Agende uma demonstração exclusiva com nossos especialistas e descubra como o Solara Connect pode transformar sua operação.
             </p>
             <motion.button 
-              onClick={onNavigateToLogin}
+              onClick={handleWhatsAppClick}
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               style={{ backgroundColor: colors.btnSuccess, color: colors.primary, border: 'none', padding: '20px 48px', borderRadius: '20px', fontSize: '1.2rem', fontWeight: '800', cursor: 'pointer', boxShadow: `0 20px 40px ${colors.btnSuccess}30` }}
