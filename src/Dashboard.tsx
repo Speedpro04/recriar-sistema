@@ -62,6 +62,11 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
     { id: 5, title: 'Follow-up de Bem-Estar', desc: 'Mensagem carinhosa 24h após o atendimento.', active: false },
   ]);
 
+  // WhatsApp Connection State
+  const [whatsappStatus, setWhatsappStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [isSyncingWA, setIsSyncingWA] = useState(false);
+
   const fetchData = async () => {
     setIsLoading(true);
     try {
@@ -111,9 +116,65 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
     }
   };
 
+  const checkWhatsAppStatus = async () => {
+    if (!clinicId) return;
+    try {
+      const instanceName = `solara_${clinicId.substring(0, 8)}`;
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/whatsapp/status/${instanceName}`);
+      const data = await response.json();
+      
+      if (data.instance?.state === 'open') {
+        setWhatsappStatus('connected');
+        setQrCode(null);
+      } else {
+        setWhatsappStatus('disconnected');
+      }
+    } catch (error) {
+      console.error('Erro ao verificar status do WhatsApp:', error);
+    }
+  };
+
+  const handleConnectWhatsApp = async () => {
+    if (!clinicId) return;
+    setIsSyncingWA(true);
+    setWhatsappStatus('connecting');
+    try {
+      const instanceName = `solara_${clinicId.substring(0, 8)}`;
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/whatsapp/connect/${instanceName}`);
+      const data = await response.json();
+      
+      if (data.base64) {
+        setQrCode(data.base64);
+      } else if (data.instance?.state === 'open') {
+        setWhatsappStatus('connected');
+      }
+    } catch (error) {
+      console.error('Erro ao conectar WhatsApp:', error);
+      setWhatsappStatus('disconnected');
+    } finally {
+      setIsSyncingWA(false);
+    }
+  };
+
+  const handleDisconnectWhatsApp = async () => {
+    if (!clinicId || !window.confirm('Deseja realmente desconectar o WhatsApp?')) return;
+    setIsSyncingWA(true);
+    try {
+      const instanceName = `solara_${clinicId.substring(0, 8)}`;
+      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/whatsapp/logout/${instanceName}`, { method: 'POST' });
+      setWhatsappStatus('disconnected');
+      setQrCode(null);
+    } catch (error) {
+      console.error('Erro ao desconectar WhatsApp:', error);
+    } finally {
+      setIsSyncingWA(false);
+    }
+  };
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     fetchData();
+    checkWhatsAppStatus();
     const channel = supabase.channel('db-changes').on('postgres_changes', { event: '*', schema: 'public' }, () => fetchData()).subscribe();
     return () => {
       clearInterval(timer);
@@ -1447,6 +1508,60 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                           <div style={{ width: 18, height: 18, background: '#fff', borderRadius: '50%', position: 'absolute', right: 3, top: 3 }} />
                         </div>
                       </div>
+                    </div>
+                  </div>
+
+                  <div style={{ background: '#fff', borderRadius: 32, padding: 32, border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 15px 40px rgba(0,0,0,0.03)' }}>
+                    <h3 style={{ fontSize: '1.5rem', fontWeight: 600, color: colors.primary, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <MessageSquare size={24} color={colors.success} /> Conexão WhatsApp
+                    </h3>
+                    <p style={{ fontSize: '0.9rem', color: colors.textMuted, marginBottom: 24 }}>Conecte seu WhatsApp para habilitar as automações e o chat em tempo real.</p>
+                    
+                    <div style={{ background: '#f8fafc', padding: 24, borderRadius: 24, border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                      {whatsappStatus === 'connected' ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center' }}>
+                          <div style={{ width: 64, height: 64, borderRadius: '50%', background: `${colors.success}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <CheckCheck size={32} color={colors.success} />
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: '1.2rem', color: colors.primary }}>WhatsApp Conectado</div>
+                            <div style={{ fontSize: '0.85rem', color: colors.success, fontWeight: 600 }}>Pronto para enviar mensagens</div>
+                          </div>
+                          <button 
+                            onClick={handleDisconnectWhatsApp}
+                            disabled={isSyncingWA}
+                            style={{ background: 'transparent', border: `1px solid ${colors.danger}`, color: colors.danger, padding: '10px 20px', borderRadius: 12, fontWeight: 600, cursor: 'pointer' }}
+                          >
+                            Desconectar Conta
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: 'center' }}>
+                          {qrCode ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+                              <div style={{ background: '#fff', padding: 16, borderRadius: 20, boxShadow: '0 10px 20px rgba(0,0,0,0.05)' }}>
+                                <img src={qrCode} alt="WhatsApp QR Code" style={{ width: 200, height: 200 }} />
+                              </div>
+                              <p style={{ fontSize: '0.85rem', color: colors.textMuted, maxWidth: 250 }}>Abra o WhatsApp {'>'} Configurações {'>'} Aparelhos Conectados e escaneie o código.</p>
+                              <button onClick={checkWhatsAppStatus} style={{ background: colors.primary, color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 12, fontWeight: 600, cursor: 'pointer' }}>Já escaneei</button>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+                              <div style={{ width: 64, height: 64, borderRadius: '50%', background: `${colors.textMuted}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Zap size={32} color={colors.textMuted} />
+                              </div>
+                              <div style={{ fontWeight: 700, fontSize: '1.1rem', color: colors.primary }}>Aguardando Conexão</div>
+                              <button 
+                                onClick={handleConnectWhatsApp}
+                                disabled={isSyncingWA}
+                                style={{ background: colors.success, color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 12, fontWeight: 700, cursor: 'pointer', boxShadow: `0 8px 16px ${colors.success}30` }}
+                              >
+                                {isSyncingWA ? 'Gerando QR Code...' : 'Conectar Agora'}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 

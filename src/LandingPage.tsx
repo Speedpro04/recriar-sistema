@@ -110,7 +110,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
         background: 'rgba(255, 255, 255, 0.8)', 
         backdropFilter: 'blur(12px)', 
         WebkitBackdropFilter: 'blur(12px)',
-        borderBottom: '1px solid rgba(0, 0, 0, 0.05)', 
+        borderBottom: `1px solid ${colors.btnSuccess}`, 
         padding: '16px 0',
         transition: 'all 0.4s ease'
       }}>
@@ -163,17 +163,17 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
               Software para Gestão de Clínicas e Consultórios
             </motion.div>
             
-            <motion.h1 variants={fadeInUp} style={{ fontSize: '5.5rem', fontWeight: '800', lineHeight: '1.1', marginBottom: 32, letterSpacing: '-0.04em', color: colors.primary }}>
+            <motion.h1 variants={fadeInUp} style={{ fontSize: '40px', fontWeight: '800', lineHeight: '1.1', marginBottom: 32, letterSpacing: '-0.04em', color: colors.primary }}>
               Solara Connect: <br/>
               <span style={{ position: 'relative', color: colors.primary }}>
-                Automação de WhatsApp.
+                Automação Via WhatsApp.
                 <svg style={{ position: 'absolute', bottom: 10, left: 0, width: '100%', height: 12, zIndex: -1 }} viewBox="0 0 300 12" preserveAspectRatio="none">
                   <path d="M0 6 Q 150 12 300 6" fill="none" stroke={colors.btnSuccess} strokeWidth="12" strokeLinecap="round"/>
                 </svg>
               </span>
             </motion.h1>
             
-            <motion.p variants={fadeInUp} style={{ fontSize: '1.3rem', color: '#555', maxWidth: 700, margin: '0 auto 48px', fontWeight: '400', lineHeight: '1.6' }}>
+            <motion.p variants={fadeInUp} style={{ fontSize: '1.15rem', color: '#555', maxWidth: 700, margin: '0 auto 48px', fontWeight: '400', lineHeight: '1.6' }}>
               A solução em nuvem completa. CRM para clínicas com integração WhatsApp, sistema de agendamento online para pacientes e chatbot para recepção. Como reduzir faltas em consultas médicas? Com a plataforma de automação de lembretes Solara Connect.
             </motion.p>
             

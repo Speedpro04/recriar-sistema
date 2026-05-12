@@ -21,6 +21,7 @@ app.add_middleware(
 # Incluir rotas
 app.include_router(stripe.router)
 app.include_router(evolution.router)
+app.include_router(whatsapp.router)
 
 @app.get("/")
 async def root():
