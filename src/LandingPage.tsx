@@ -28,7 +28,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
   };
 
   const handleWhatsAppClick = () => {
-    window.open('https://wa.me/5512997588791?text=Olá,%20gostaria%20de%20saber%20mais%20sobre%20o%20Solara%20Connect!', '_blank');
+    window.open('https://wa.me/5512978138934?text=Olá,%20gostaria%20de%20saber%20mais%20sobre%20o%20Solara%20Connect!', '_blank');
   };
   const colors = {
     primary: '#130f40',
