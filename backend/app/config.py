@@ -42,6 +42,13 @@ class Settings:
     STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
     
     # Stripe Price IDs
+    STRIPE_PRICE_BASICO = os.getenv("STRIPE_PRICE_BASICO", "")
+    STRIPE_PRICE_CRESCIMENTO = os.getenv("STRIPE_PRICE_CRESCIMENTO", "")
     STRIPE_PRICE_AVANCADO = os.getenv("STRIPE_PRICE_AVANCADO", "")
+    STRIPE_PRICE_ENTERPRISE = os.getenv("STRIPE_PRICE_ENTERPRISE", "")
+
+    # Maintenance / Dev Pass
+    ENABLE_DEV_PASS = os.getenv("ENABLE_DEV_PASS", "false").lower() == "true"
+    DEV_PASS_SECRET = os.getenv("DEV_PASS_SECRET", "")
 
 settings = Settings()

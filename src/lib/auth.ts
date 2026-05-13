@@ -40,6 +40,8 @@ export interface SessionUser {
   planName: string;
 }
 
+export type SubscriptionStatus = 'active' | 'trialing' | 'pending' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete' | 'incomplete_expired';
+
 // =============================================
 // PLANOS
 // =============================================
@@ -111,18 +113,6 @@ export async function registerClinic(data: RegisterData): Promise<{ userId: stri
 // LOGIN
 // =============================================
 export async function loginUser(data: LoginData): Promise<SessionUser> {
-  // ======= MASTER BYPASS (PASSE LIVRE) =======
-  if (data.email === 'wineatlas77@gmail.com' && data.password === '6687139') {
-    return {
-      id: 'master-user-id',
-      email: 'wineatlas77@gmail.com',
-      clinicId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-      clinicName: 'AxosHub',
-      role: 'owner',
-      planName: 'Enterprise'
-    };
-  }
-
   const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
     email: data.email,
     password: data.password
@@ -174,6 +164,23 @@ export async function loginUser(data: LoginData): Promise<SessionUser> {
     role: userProfile.role,
     planName: clinic?.plans?.name || ''
   };
+}
+
+// =============================================
+// BILLING ACCESS
+// =============================================
+export async function hasActiveSubscription(clinicId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('subscriptions')
+    .select('status, created_at')
+    .eq('clinic_id', clinicId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) return false;
+  const status = String(data.status || '').toLowerCase() as SubscriptionStatus;
+  return status === 'active' || status === 'trialing';
 }
 
 // =============================================

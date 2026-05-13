@@ -6,7 +6,7 @@ import { loginUser } from './lib/auth';
 import { supabase } from './lib/supabase';
 
 interface LoginPageProps {
-  onLogin: (clinicId: string) => void;
+  onLogin: (clinicId: string) => Promise<void> | void;
   onBack: () => void;
   onNavigateToRegister: () => void;
   onDevPass: () => void;
@@ -37,6 +37,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onBack, onNavigateToRegi
     danger: '#ff5252',
     success: '#33d9b2'
   };
+  const devPassEnabled = import.meta.env.VITE_ENABLE_DEV_PASS === 'true';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,7 +49,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onBack, onNavigateToRegi
     setIsLoading(true);
     try {
       const user = await loginUser({ email: formData.email, password: formData.password });
-      onLogin(user.clinicId);
+      await onLogin(user.clinicId);
     } catch (err: any) {
       setError(err.message || 'E-mail ou senha incorretos.');
     } finally {
@@ -182,9 +183,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onBack, onNavigateToRegi
                 </div>
 
                 {/* Dev Pass (Subtle) */}
-                <div style={{ marginTop: 20, textAlign: 'center' }}>
-                  <button type="button" onClick={onDevPass} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.05)', fontSize: '0.7rem', cursor: 'default' }}>Passe Livre</button>
-                </div>
+                {devPassEnabled && (
+                  <div style={{ marginTop: 20, textAlign: 'center' }}>
+                    <button type="button" onClick={onDevPass} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.25)', fontSize: '0.75rem', cursor: 'pointer' }}>Passe Livre</button>
+                  </div>
+                )}
               </form>
             </>
           )}

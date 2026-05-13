@@ -4,7 +4,7 @@ import LandingPage from './LandingPage';
 import LoginPage from './LoginPage';
 import RegisterPage from './RegisterPage';
 import CheckoutPage from './CheckoutPage';
-import { logoutUser, getCurrentSession } from './lib/auth';
+import { logoutUser, getCurrentSession, hasActiveSubscription } from './lib/auth';
 import { supabase } from './lib/supabase';
 import './index.css';
 
@@ -27,6 +27,10 @@ function App() {
   });
   const [clinicId, setClinicId] = useState('');
   const [userEmail, setUserEmail] = useState('');
+  const [billingError, setBillingError] = useState('');
+  const devPassEnabled = import.meta.env.VITE_ENABLE_DEV_PASS === 'true';
+  const devPassClinicId = import.meta.env.VITE_DEV_PASS_CLINIC_ID || 'dev-clinic-maintenance';
+  const devPassCode = import.meta.env.VITE_DEV_PASS_CODE || '';
 
   // Restaurar sessão ao carregar a página
   useEffect(() => {
@@ -46,7 +50,12 @@ function App() {
           if (userProfile?.clinic_id) {
             setClinicId(userProfile.clinic_id);
             setUserEmail(session.user.email || '');
-            
+            const hasBillingAccess = await hasActiveSubscription(userProfile.clinic_id);
+            if (!hasBillingAccess) {
+              setBillingError('Sua assinatura está pendente/inativa. Finalize o pagamento para acessar o dashboard.');
+              setView('landing');
+              return;
+            }
             if (checkoutSuccess) {
               window.history.replaceState({}, document.title, "/");
             }
@@ -81,8 +90,14 @@ function App() {
   }, []);
 
   const handleDevPass = () => {
-    setClinicId('dev-clinic-123');
-    setUserEmail('admin@solara.com');
+    if (!devPassEnabled) return;
+    const informedCode = window.prompt('Informe o código de manutenção');
+    if (!informedCode || informedCode !== devPassCode) {
+      alert('Código de manutenção inválido.');
+      return;
+    }
+    setClinicId(devPassClinicId);
+    setUserEmail('maintenance@solara.local');
     setView('dashboard');
   };
 
@@ -97,8 +112,15 @@ function App() {
     setView('checkout');
   };
 
-  const handleLoginSuccess = (loggedClinicId: string) => {
+  const handleLoginSuccess = async (loggedClinicId: string) => {
+    const hasBillingAccess = await hasActiveSubscription(loggedClinicId);
+    if (!hasBillingAccess) {
+      setBillingError('Sua assinatura está pendente/inativa. Finalize o pagamento para acessar o dashboard.');
+      setView('landing');
+      return;
+    }
     setClinicId(loggedClinicId);
+    setBillingError('');
     setView('dashboard');
   };
 
@@ -146,10 +168,15 @@ function App() {
 
       {/* ======= LANDING PAGE ======= */}
       {view === 'landing' && (
-        <LandingPage 
-          onNavigateToLogin={() => setView('login')} 
+        <LandingPage
+          onNavigateToLogin={() => setView('login')}
           onNavigateToRegister={handleNavigateToRegister}
         />
+      )}
+      {billingError && view === 'landing' && (
+        <div style={{ position: 'fixed', bottom: 20, left: 20, right: 20, background: '#fff3cd', color: '#856404', border: '1px solid #ffeeba', padding: '12px 16px', borderRadius: 8, zIndex: 1000 }}>
+          {billingError}
+        </div>
       )}
 
       {/* ======= LOGIN ======= */}

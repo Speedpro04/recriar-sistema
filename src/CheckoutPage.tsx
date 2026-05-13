@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { CreditCard, CheckCircle2, ArrowLeft, MailCheck, LockKeyhole, Calendar, Hash, Lock, AlertCircle } from 'lucide-react';
+import { CreditCard, CheckCircle2, ArrowLeft, MailCheck, LockKeyhole, Lock, AlertCircle } from 'lucide-react';
 import Logo from './Logo';
+import { supabase } from './lib/supabase';
 
 interface CheckoutPageProps {
   planName: string;
@@ -18,7 +19,6 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ planName, planPrice, priceI
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess] = useState(false);
   const [error, setError] = useState('');
-  const [focusState, setFocusState] = useState({ card: false, name: false, val: false, cvv: false });
 
   const colors = {
     bgRight: '#130f40',
@@ -31,10 +31,6 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ planName, planPrice, priceI
     danger: '#ff5252'
   };
 
-  const setFocus = (field: string, value: boolean) => {
-    setFocusState(prev => ({ ...prev, [field]: value }));
-  };
-
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -44,12 +40,18 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ planName, planPrice, priceI
       if (!_priceId) {
         throw new Error('Preço Stripe não configurado para este plano');
       }
+      const sessionInfo = await supabase.auth.getSession();
+      const accessToken = sessionInfo.data.session?.access_token;
+      if (!accessToken) {
+        throw new Error('Sessão expirada. Faça login novamente.');
+      }
 
       const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000';
       const response = await fetch(`${apiBase}/api/stripe/create-checkout-session`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
         },
         body: JSON.stringify({
           price_id: _priceId,
@@ -133,34 +135,8 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ planName, planPrice, priceI
               )}
 
               <form style={{ width: '100%' }} onSubmit={handlePayment}>
-                <div style={{ marginBottom: 20 }}>
-                  <label style={{ display: 'block', fontSize: '0.85rem', color: colors.cyan, marginBottom: 8, fontWeight: 600 }}>Número do Cartão</label>
-                  <div style={{ position: 'relative' }}>
-                    <CreditCard size={18} color={focusState.card ? colors.cyan : colors.textMuted} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', transition: 'color 0.3s' }} />
-                    <input type="text" placeholder="0000 0000 0000 0000" maxLength={19} onFocus={() => setFocus('card', true)} onBlur={() => setFocus('card', false)} style={{ width: '100%', backgroundColor: colors.inputBg, border: `1px solid ${focusState.card ? colors.cyan : colors.cyanDark}`, borderRadius: 12, padding: '14px 14px 14px 44px', color: '#ffffff', fontSize: '1rem', outline: 'none', transition: 'all 0.3s', letterSpacing: '1px' }} />
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: 20 }}>
-                  <label style={{ display: 'block', fontSize: '0.85rem', color: colors.cyan, marginBottom: 8, fontWeight: 600 }}>Nome no Cartão</label>
-                  <input type="text" placeholder="NOME IGUAL AO CARTÃO" onFocus={() => setFocus('name', true)} onBlur={() => setFocus('name', false)} style={{ width: '100%', backgroundColor: colors.inputBg, border: `1px solid ${focusState.name ? colors.cyan : colors.cyanDark}`, borderRadius: 12, padding: '14px 16px', color: '#ffffff', fontSize: '0.95rem', outline: 'none', transition: 'all 0.3s', textTransform: 'uppercase' }} />
-                </div>
-
-                <div style={{ display: 'flex', gap: 16, marginBottom: 32 }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', fontSize: '0.85rem', color: colors.cyan, marginBottom: 8, fontWeight: 600 }}>Validade</label>
-                    <div style={{ position: 'relative' }}>
-                      <Calendar size={18} color={focusState.val ? colors.cyan : colors.textMuted} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', transition: 'color 0.3s' }} />
-                      <input type="text" placeholder="MM/AA" maxLength={5} onFocus={() => setFocus('val', true)} onBlur={() => setFocus('val', false)} style={{ width: '100%', backgroundColor: colors.inputBg, border: `1px solid ${focusState.val ? colors.cyan : colors.cyanDark}`, borderRadius: 12, padding: '14px 14px 14px 44px', color: '#ffffff', fontSize: '0.95rem', outline: 'none', transition: 'all 0.3s' }} />
-                    </div>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', fontSize: '0.85rem', color: colors.cyan, marginBottom: 8, fontWeight: 600 }}>CVV</label>
-                    <div style={{ position: 'relative' }}>
-                      <Hash size={18} color={focusState.cvv ? colors.cyan : colors.textMuted} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', transition: 'color 0.3s' }} />
-                      <input type="password" placeholder="123" maxLength={4} onFocus={() => setFocus('cvv', true)} onBlur={() => setFocus('cvv', false)} style={{ width: '100%', backgroundColor: colors.inputBg, border: `1px solid ${focusState.cvv ? colors.cyan : colors.cyanDark}`, borderRadius: 12, padding: '14px 14px 14px 44px', color: '#ffffff', fontSize: '0.95rem', outline: 'none', transition: 'all 0.3s' }} />
-                    </div>
-                  </div>
+                <div style={{ marginBottom: 24, background: colors.inputBg, border: `1px solid ${colors.cyanDark}`, borderRadius: 12, padding: '14px 16px', color: '#c9c9c9', fontSize: '0.9rem', lineHeight: 1.5 }}>
+                  Você será redirecionado para o ambiente seguro do Stripe para inserir os dados de pagamento.
                 </div>
 
                 <motion.button disabled={isProcessing} whileHover={!isProcessing ? { scale: 1.02, boxShadow: `0 10px 25px ${colors.cyan}50` } : {}} whileTap={!isProcessing ? { scale: 0.98 } : {}} type="submit" style={{ width: '100%', background: isProcessing ? colors.inputBg : `linear-gradient(to right, ${colors.cyan}, #00a8ff)`, border: isProcessing ? `1px solid ${colors.cyan}` : 'none', padding: '16px', borderRadius: 12, color: isProcessing ? colors.cyan : '#ffffff', fontWeight: 700, fontSize: '1.05rem', cursor: isProcessing ? 'wait' : 'pointer', marginBottom: 24, boxShadow: isProcessing ? 'none' : `0 8px 20px ${colors.cyan}40`, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12 }}>
