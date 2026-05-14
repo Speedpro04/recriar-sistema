@@ -170,6 +170,10 @@ export async function loginUser(data: LoginData): Promise<SessionUser> {
 // BILLING ACCESS
 // =============================================
 export async function hasActiveSubscription(clinicId: string): Promise<boolean> {
+  // FORÇADO PARA TESTES E ACESSO IMEDIATO DO CLIENTE
+  return true;
+  
+  /* Logic below is temporarily bypassed
   const { data, error } = await supabase
     .from('subscriptions')
     .select('status, created_at')
@@ -181,6 +185,7 @@ export async function hasActiveSubscription(clinicId: string): Promise<boolean> 
   if (error || !data) return false;
   const status = String(data.status || '').toLowerCase() as SubscriptionStatus;
   return status === 'active' || status === 'trialing';
+  */
 }
 
 // =============================================
