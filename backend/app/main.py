@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .celery_app import celery_app
-from .api import stripe, evolution
+from .api import stripe, evolution, whatsapp, ai
 
 app = FastAPI(
     title="Axos Hub API",
@@ -22,6 +22,7 @@ app.add_middleware(
 app.include_router(stripe.router)
 app.include_router(evolution.router)
 app.include_router(whatsapp.router)
+app.include_router(ai.router)
 
 @app.get("/")
 async def root():
