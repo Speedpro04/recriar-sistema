@@ -169,7 +169,7 @@ export async function loginUser(data: LoginData): Promise<SessionUser> {
 // =============================================
 // BILLING ACCESS
 // =============================================
-export async function hasActiveSubscription(clinicId: string): Promise<boolean> {
+export async function hasActiveSubscription(_clinicId: string): Promise<boolean> {
   // FORÇADO PARA TESTES E ACESSO IMEDIATO DO CLIENTE
   return true;
   
