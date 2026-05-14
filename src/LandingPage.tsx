@@ -1,4 +1,4 @@
-뿯붿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ShieldCheck, Clock, ArrowRight, Stethoscope, Building, CheckCircle2, MessageSquare, Calendar, ChevronUp } from 'lucide-react';
 import Logo from './Logo';
