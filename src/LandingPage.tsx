@@ -28,7 +28,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
   };
 
   const handleWhatsAppClick = () => {
-    window.open('https://wa.me/5512978138934?text=Ol├뿯½,%20gostaria%20de%20saber%20mais%20sobre%20o%20Solara%20Connect!', '_blank');
+    window.open('https://wa.me/5512978138934?text=Olá,%20gostaria%20de%20saber%20mais%20sobre%20o%20Solara%20Connect!', '_blank');
   };
   const colors = {
     primary: '#130f40',
@@ -124,7 +124,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
           <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
             <div style={{ display: 'flex', gap: 32, marginRight: 16 }}>
               {[
-                { label: 'Solu├뿯½├뿯½es', target: 'solucoes' },
+                { label: 'Soluções', target: 'solucoes' },
                 { label: 'Especialistas', target: 'experiencia' },
                 { label: 'Planos', target: 'planos' }
               ].map((item) => (
@@ -164,13 +164,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
           <motion.div initial="initial" animate="animate" variants={staggerContainer} style={{ maxWidth: '900px' }}>
             <motion.div variants={fadeInUp} style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 20px', background: colors.cardBg, border: `1px solid ${colors.cardBorder}80`, borderRadius: '30px', color: colors.primary, fontSize: '0.9rem', fontWeight: '600', marginBottom: 40, textTransform: 'uppercase' }}>
               <span style={{ width: 8, height: 8, background: colors.btnSuccess, borderRadius: '50%', display: 'inline-block', boxShadow: `0 0 10px ${colors.btnSuccess}` }} />
-              Software para Gest├뿯½o de Cl├뿯½nicas e Consult├│rios
+              Software para Gestão de Clínicas e Consultórios
             </motion.div>
             
             <motion.h1 variants={fadeInUp} style={{ fontSize: '46px', fontWeight: '800', lineHeight: '1.1', marginBottom: 32, letterSpacing: '-0.04em', color: colors.primary }}>
               Solara Connect: <br/>
               <span style={{ position: 'relative', color: colors.primary }}>
-                Automa├뿯½├뿯½o Via WhatsApp.
+                Automação Via WhatsApp.
                 <svg style={{ position: 'absolute', bottom: 2, left: 0, width: '100%', height: 12, zIndex: -1 }} viewBox="0 0 300 12" preserveAspectRatio="none">
                   <path d="M0 6 Q 150 12 300 6" fill="none" stroke={colors.btnSuccess} strokeWidth="12" strokeLinecap="round"/>
                 </svg>
@@ -178,7 +178,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
             </motion.h1>
             
             <motion.p variants={fadeInUp} style={{ fontSize: '1.15rem', color: '#555', maxWidth: 700, margin: '0 auto 48px', fontWeight: '400', lineHeight: '1.6' }}>
-              A solu├뿯½├뿯½o em nuvem completa. CRM para cl├뿯½nicas com integra├뿯½├뿯½o WhatsApp, sistema de agendamento online para pacientes e chatbot para recep├뿯½├뿯½o. Como reduzir faltas em consultas m├뿯½dicas? Com a plataforma de automa├뿯½├뿯½o de lembretes Solara Connect.
+              A solução em nuvem completa. CRM para clínicas com integração WhatsApp, sistema de agendamento online para pacientes e chatbot para recepção. Como reduzir faltas em consultas médicas? Com a plataforma de automação de lembretes Solara Connect.
             </motion.p>
             
             <motion.div variants={fadeInUp} style={{ display: 'flex', justifyContent: 'center', gap: 24 }}>
@@ -188,7 +188,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
                 whileTap={{ scale: 0.97 }}
                 style={{ backgroundColor: colors.btnSuccess, color: colors.primary, border: 'none', padding: '20px 40px', borderRadius: '16px', fontSize: '1.1rem', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, boxShadow: `0 20px 40px ${colors.btnSuccess}40` }}
               >
-                Agendar Demonstra├뿯½├뿯½o <ArrowRight size={20} />
+                Agendar Demonstração <ArrowRight size={20} />
               </motion.button>
               <motion.button 
                 onClick={() => document.getElementById('solucoes')?.scrollIntoView({ behavior: 'smooth' })}
@@ -196,7 +196,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
                 whileTap={{ scale: 0.97 }}
                 style={{ backgroundColor: 'transparent', color: colors.primary, border: `2px solid ${colors.cardBorder}`, padding: '20px 40px', borderRadius: '16px', fontSize: '1.1rem', fontWeight: '600', cursor: 'pointer' }}
               >
-                Ver Solu├뿯½├뿯½es
+                Ver Soluções
               </motion.button>
             </motion.div>
           </motion.div>
@@ -227,9 +227,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
       {/* Trust Section */}
       <section style={{ borderTop: `1px solid ${colors.cardBorder}30`, borderBottom: `1px solid ${colors.cardBorder}30`, background: colors.cardBg }}>
         <div style={{ ...containerStyle, padding: '60px 20px', textAlign: 'center' }}>
-          <p style={{ color: '#666', fontSize: '0.9rem', fontWeight: '600', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 40 }}>Aprovado por Cl├뿯½nicas e Hospitais de Refer├뿯½ncia</p>
+          <p style={{ color: '#666', fontSize: '0.9rem', fontWeight: '600', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 40 }}>Aprovado por Clínicas e Hospitais de Referência</p>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: 0.6, filter: 'grayscale(100%)' }}>
-            {['ODONTOLOGIA', 'EST├뿯½TICA', 'DERMATOLOGIA', 'FISIOTERAPIA', 'PEDIATRIA'].map((brand, i) => (
+            {['ODONTOLOGIA', 'ESTÉTICA', 'DERMATOLOGIA', 'FISIOTERAPIA', 'PEDIATRIA'].map((brand, i) => (
               <h3 key={i} style={{ fontSize: '1.5rem', fontWeight: '800', color: colors.primary }}>{brand}</h3>
             ))}
           </div>
@@ -240,18 +240,18 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
       <section id="solucoes" style={{ padding: '120px 0' }}>
         <div style={{ ...containerStyle, padding: '0 20px' }}>
           <div style={{ textAlign: 'center', marginBottom: 80, maxWidth: 800, margin: '0 auto 80px' }}>
-            <h2 style={{ fontSize: '3.5rem', fontWeight: '800', marginBottom: 24, color: colors.primary, letterSpacing: '-0.02em' }}>Projetado para sua Cl├뿯½nica</h2>
+            <h2 style={{ fontSize: '3.5rem', fontWeight: '800', marginBottom: 24, color: colors.primary, letterSpacing: '-0.02em' }}>Projetado para sua Clínica</h2>
             <p style={{ fontSize: '1.2rem', color: '#666', lineHeight: '1.6' }}>O Solara Connect elimina a burocracia, permitindo que seus especialistas foquem no que importa: o resultado do cliente.</p>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 32 }}>
             {[
-              { icon: <Clock />, title: "Fila Zero", desc: "Triagem e admiss├뿯½o automatizadas. O paciente aguarda menos de 5 minutos na recep├뿯½├뿯½o." },
-              { icon: <Calendar />, title: "Agendamento 24/7", desc: "Sua cl├뿯½nica nunca fecha. Link de agendamento inteligente para seus pacientes marcarem consultas a qualquer hora." },
-              { icon: <MessageSquare />, title: "Agenda no WhatsApp", desc: "Seus especialistas recebem a lista de pacientes todas as manh├뿯½s ├뿯½s 06:00, direto no celular." },
-              { icon: <Building />, title: "Gest├뿯½o de Salas", desc: "Painel Kanban em tempo real para otimiza├뿯½├뿯½o de consult├│rios e controle de fluxo." },
-              { icon: <Stethoscope />, title: "Prontu├뿯½rio Unificado", desc: "Integra├뿯½├뿯½o total do hist├│rico do paciente antes mesmo de ele entrar na sala." },
-              { icon: <ShieldCheck />, title: "Seguran├뿯½a LGPD", desc: "Dados sens├뿯½veis criptografados e conformidade total com a Lei Geral de Prote├뿯½├뿯½o de Dados." }
+              { icon: <Clock />, title: "Fila Zero", desc: "Triagem e admissão automatizadas. O paciente aguarda menos de 5 minutos na recepção." },
+              { icon: <Calendar />, title: "Agendamento 24/7", desc: "Sua clínica nunca fecha. Link de agendamento inteligente para seus pacientes marcarem consultas a qualquer hora." },
+              { icon: <MessageSquare />, title: "Agenda no WhatsApp", desc: "Seus especialistas recebem a lista de pacientes todas as manhãs às 06:00, direto no celular." },
+              { icon: <Building />, title: "Gestão de Salas", desc: "Painel Kanban em tempo real para otimização de consultórios e controle de fluxo." },
+              { icon: <Stethoscope />, title: "Prontuário Unificado", desc: "Integração total do histórico do paciente antes mesmo de ele entrar na sala." },
+              { icon: <ShieldCheck />, title: "Segurança LGPD", desc: "Dados sensíveis criptografados e conformidade total com a Lei Geral de Proteção de Dados." }
             ].map((feat, i) => (
               <motion.div 
                 key={i}
@@ -283,19 +283,19 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
             viewport={{ once: true }}
           >
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '8px 16px', background: 'rgba(51, 217, 178, 0.1)', border: '1px solid rgba(51, 217, 178, 0.3)', borderRadius: '20px', color: colors.btnSuccess, fontSize: '0.85rem', fontWeight: '700', marginBottom: 32, textTransform: 'uppercase' }}>
-              <ShieldCheck size={18} /> Seguran├뿯½a de Dados Enterprise
+              <ShieldCheck size={18} /> Segurança de Dados Enterprise
             </div>
-            <h2 style={{ fontSize: '3.5rem', fontWeight: '800', marginBottom: 24, lineHeight: '1.1', letterSpacing: '-0.02em' }}>Sua Cl├뿯½nica 100% aderente ├뿯½ LGPD.</h2>
+            <h2 style={{ fontSize: '3.5rem', fontWeight: '800', marginBottom: 24, lineHeight: '1.1', letterSpacing: '-0.02em' }}>Sua Clínica 100% aderente à LGPD.</h2>
             <p style={{ fontSize: '1.2rem', color: 'rgba(255,255,255,0.7)', lineHeight: '1.6', marginBottom: 40 }}>
-              A Solara Connect foi constru├뿯½da sob os pilares da Lei Geral de Prote├뿯½├뿯½o de Dados (Lei 13.709/18). 
-              Garantimos que cada dado de sa├║de, prontu├뿯½rio e informa├뿯½├뿯½o pessoal seja tratado com o mais alto n├뿯½vel de criptografia e governan├뿯½a.
+              A Solara Connect foi construída sob os pilares da Lei Geral de Proteção de Dados (Lei 13.709/18). 
+              Garantimos que cada dado de saúde, prontuário e informação pessoal seja tratado com o mais alto nível de criptografia e governança.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               {[
-                "Criptografia de ponta a ponta em todos os prontu├뿯½rios m├뿯½dicos.",
-                "Gest├뿯½o rigorosa de consentimento e termos de uso.",
-                "Hospedagem em servidores com certifica├뿯½├뿯½o ISO 27001 e HIPAA.",
-                "Logs de auditoria completos para cada acesso a dado sens├뿯½vel."
+                "Criptografia de ponta a ponta em todos os prontuários médicos.",
+                "Gestão rigorosa de consentimento e termos de uso.",
+                "Hospedagem em servidores com certificação ISO 27001 e HIPAA.",
+                "Logs de auditoria completos para cada acesso a dado sensível."
               ].map((item, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: '1.05rem', fontWeight: '500' }}>
                   <div style={{ width: 24, height: 24, borderRadius: '50%', background: colors.btnSuccess, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -314,7 +314,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
           >
             <div style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', padding: '48px', borderRadius: '40px', position: 'relative', zIndex: 1 }}>
               <div style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: 32, display: 'flex', alignItems: 'center', gap: 16 }}>
-                <Building size={32} color={colors.btnSuccess} /> Certifica├뿯½├뿯½es de Seguran├뿯½a
+                <Building size={32} color={colors.btnSuccess} /> Certificações de Segurança
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
                 {['LGPD Brasil', 'HIPAA Ready', 'ISO 27001', 'SOC2 Type II'].map((cert, i) => (
@@ -333,18 +333,18 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
       <section id="experiencia" style={{ padding: '120px 0', backgroundColor: colors.bg }}>
         <div style={{ ...containerStyle, padding: '0 20px' }}>
           <div style={{ textAlign: 'center', marginBottom: 80 }}>
-            <h2 style={{ fontSize: '3.5rem', fontWeight: '800', marginBottom: 24, color: colors.primary, letterSpacing: '-0.02em' }}>A Pot├뿯½ncia do Solara Connect</h2>
+            <h2 style={{ fontSize: '3.5rem', fontWeight: '800', marginBottom: 24, color: colors.primary, letterSpacing: '-0.02em' }}>A Potência do Solara Connect</h2>
             <p style={{ fontSize: '1.2rem', color: '#666', maxWidth: 850, margin: '0 auto', lineHeight: '1.6' }}>
-              Interface intuitiva projetada para m├뿯½xima produtividade cl├뿯½nica. Reduza faltas e automatize o WhatsApp do seu consult├│rio em poucos cliques.
+              Interface intuitiva projetada para máxima produtividade clínica. Reduza faltas e automatize o WhatsApp do seu consultório em poucos cliques.
             </p>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '48px' }}>
             {[
-              { img: '/recepcao.png', title: 'Recep├뿯½├뿯½o Inteligente', desc: 'Controle de fila e salas em tempo real.' },
-              { img: '/agenda.png', title: 'Login e Cadastro', desc: 'Acesso r├뿯½pido e seguro ao portal Solara.' },
-              { img: '/prontuario.png', title: 'Prontu├뿯½rio Digital', desc: 'Hist├│rico cl├뿯½nico unificado e seguro.' },
-              { img: '/whatsapp.png', title: 'WhatsApp & IA', desc: 'Automa├뿯½├뿯½o de lembretes e confirma├뿯½├뿯½o de presen├뿯½a no WhatsApp.' }
+              { img: '/recepcao.png', title: 'Recepção Inteligente', desc: 'Controle de fila e salas em tempo real.' },
+              { img: '/agenda.png', title: 'Login e Cadastro', desc: 'Acesso rápido e seguro ao portal Solara.' },
+              { img: '/prontuario.png', title: 'Prontuário Digital', desc: 'Histórico clínico unificado e seguro.' },
+              { img: '/whatsapp.png', title: 'WhatsApp & IA', desc: 'Automação de lembretes e confirmação de presença no WhatsApp.' }
             ].map((item, i) => (
               <motion.div 
                 key={i}
@@ -369,14 +369,14 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
         <div style={{ ...containerStyle, padding: '0 20px' }}>
           <div style={{ textAlign: 'center', marginBottom: 80, maxWidth: 800, margin: '0 auto 80px' }}>
             <h2 style={{ fontSize: '3.5rem', fontWeight: '800', marginBottom: 24, color: colors.primary, letterSpacing: '-0.02em' }}>Planos Sob Medida</h2>
-            <p style={{ fontSize: '1.2rem', color: '#666', lineHeight: '1.6' }}>Escolha o plano ideal com base no tamanho do seu corpo cl├뿯½nico. Todos os planos incluem acesso completo ao sistema.</p>
+            <p style={{ fontSize: '1.2rem', color: '#666', lineHeight: '1.6' }}>Escolha o plano ideal com base no tamanho do seu corpo clínico. Todos os planos incluem acesso completo ao sistema.</p>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24 }}>
             {[
-              { title: "B├뿯½sico", slug: "basico", esp: "At├뿯½ 2 especialistas", price: "197", color: colors.btnSuccess, priceId: import.meta.env.VITE_STRIPE_PRICE_BASICO },
+              { title: "Básico", slug: "basico", esp: "Até 2 especialistas", price: "197", color: colors.btnSuccess, priceId: import.meta.env.VITE_STRIPE_PRICE_BASICO },
               { title: "Crescimento", slug: "crescimento", esp: "3 a 5 especialistas", price: "397", color: colors.cardBorder, priceId: import.meta.env.VITE_STRIPE_PRICE_CRESCIMENTO },
-              { title: "Avan├뿯½ado", slug: "avancado", esp: "6 a 9 especialistas", price: "597", color: colors.btnWarn, priceId: import.meta.env.VITE_STRIPE_PRICE_AVANCADO },
+              { title: "Avançado", slug: "avancado", esp: "6 a 9 especialistas", price: "597", color: colors.btnWarn, priceId: import.meta.env.VITE_STRIPE_PRICE_AVANCADO },
               { title: "Enterprise", slug: "enterprise", esp: "Acima de 10", price: "897", color: colors.primary, priceId: import.meta.env.VITE_STRIPE_PRICE_ENTERPRISE }
             ].map((plan, i) => (
               <motion.div 
@@ -400,7 +400,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
                   overflow: 'hidden'
                 }}
               >
-                {/* Destaque para o plano Avan├뿯½ado */}
+                {/* Destaque para o plano Avançado */}
                 {i === 2 && (
                   <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', background: colors.btnWarn, color: colors.primary, fontSize: '0.8rem', fontWeight: '800', padding: '6px 0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     Mais Escolhido
@@ -416,13 +416,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 32, color: colors.primary }}>
                   <span style={{ fontSize: '1.2rem', fontWeight: '700' }}>R$</span>
                   <span style={{ fontSize: '3.5rem', fontWeight: '800', letterSpacing: '-0.05em' }}>{plan.price}</span>
-                  <span style={{ fontSize: '1rem', color: '#888', fontWeight: '500' }}>/m├뿯½s</span>
+                  <span style={{ fontSize: '1rem', color: '#888', fontWeight: '500' }}>/mês</span>
                 </div>
                 
                 <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 40px 0', width: '100%', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <li style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.95rem', color: '#555', fontWeight: '500' }}><CheckCircle2 size={20} color={colors.btnSuccess} /> Gest├뿯½o de Salas</li>
-                  <li style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.95rem', color: '#555', fontWeight: '500' }}><CheckCircle2 size={20} color={colors.btnSuccess} /> Prontu├뿯½rio Integrado</li>
-                  <li style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.95rem', color: '#555', fontWeight: '500' }}><CheckCircle2 size={20} color={colors.btnSuccess} /> Suporte Priorit├뿯½rio</li>
+                  <li style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.95rem', color: '#555', fontWeight: '500' }}><CheckCircle2 size={20} color={colors.btnSuccess} /> Gestão de Salas</li>
+                  <li style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.95rem', color: '#555', fontWeight: '500' }}><CheckCircle2 size={20} color={colors.btnSuccess} /> Prontuário Integrado</li>
+                  <li style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.95rem', color: '#555', fontWeight: '500' }}><CheckCircle2 size={20} color={colors.btnSuccess} /> Suporte Prioritário</li>
                 </ul>
                 
                 <button 
@@ -460,9 +460,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
           >
             <div style={{ position: 'absolute', top: -100, right: -100, width: 400, height: 400, background: colors.btnSuccess, filter: 'blur(200px)', opacity: 0.2, borderRadius: '50%' }} />
             
-            <h2 style={{ fontSize: '3.5rem', fontWeight: '800', color: colors.bg, marginBottom: 24, letterSpacing: '-0.02em' }}>Eleve sua Cl├뿯½nica.</h2>
+            <h2 style={{ fontSize: '3.5rem', fontWeight: '800', color: colors.bg, marginBottom: 24, letterSpacing: '-0.02em' }}>Eleve sua Clínica.</h2>
             <p style={{ fontSize: '1.2rem', color: `${colors.bg}80`, maxWidth: 600, margin: '0 auto 48px', lineHeight: '1.6' }}>
-              Agende uma demonstra├뿯½├뿯½o exclusiva com nossos especialistas e descubra como o Solara Connect pode transformar sua opera├뿯½├뿯½o.
+              Agende uma demonstração exclusiva com nossos especialistas e descubra como o Solara Connect pode transformar sua operação.
             </p>
             <motion.button 
               onClick={handleWhatsAppClick}
@@ -483,7 +483,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <Logo size={24} showText={false} />
-                <span style={{ fontWeight: '700', color: colors.primary }}>Solara Connect ┬뿯½ 2026</span>
+                <span style={{ fontWeight: '700', color: colors.primary }}>Solara Connect © 2026</span>
               </div>
               <div style={{ fontSize: '0.85rem', color: '#888' }}>
                 Contato: <a href="mailto:axoshub.solara@gmail.com" style={{ color: colors.btnSuccess, textDecoration: 'none' }}>axoshub.solara@gmail.com</a>
@@ -492,7 +492,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
 
             <div style={{ display: 'flex', gap: 32 }}>
               <a href="#" style={{ color: '#666', textDecoration: 'none', fontSize: '0.9rem' }}>Termos de Uso</a>
-              <a href="#" style={{ color: '#666', textDecoration: 'none', fontSize: '0.9rem' }}>Pol├뿯½tica de Privacidade (LGPD)</a>
+              <a href="#" style={{ color: '#666', textDecoration: 'none', fontSize: '0.9rem' }}>Política de Privacidade (LGPD)</a>
             </div>
           </div>
 
