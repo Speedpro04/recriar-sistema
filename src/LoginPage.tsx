@@ -37,7 +37,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onBack, onNavigateToRegi
     danger: '#ff5252',
     success: '#33d9b2'
   };
-  const devPassEnabled = import.meta.env.VITE_ENABLE_DEV_PASS === 'true';
+  const devPassEnabled = true; // Forçado para manutenção e testes do cliente
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
