@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ShieldCheck, Clock, ArrowRight, Stethoscope, Building, CheckCircle2, MessageSquare, Calendar, ChevronUp } from 'lucide-react';
+import { ShieldCheck, Clock, ArrowRight, Stethoscope, Building, CheckCircle2, MessageSquare, Calendar, ChevronUp, Mic } from 'lucide-react';
 import Logo from './Logo';
 
 interface LandingPageProps {
@@ -178,7 +178,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
             </motion.h1>
             
             <motion.p variants={fadeInUp} style={{ fontSize: '1.15rem', color: '#555', maxWidth: 700, margin: '0 auto 48px', fontWeight: '400', lineHeight: '1.6' }}>
-              A solução em nuvem completa. CRM para clínicas com integração WhatsApp, sistema de agendamento online para pacientes e chatbot para recepção. Como reduzir faltas em consultas médicas? Com a plataforma de automação de lembretes Solara Connect.
+              A solução em nuvem completa. CRM para clínicas com integração WhatsApp, sistema de agendamento online para clientes e chatbot para recepção. Como reduzir faltas em consultas médicas? Com a plataforma de automação de lembretes Solara Connect.
             </motion.p>
             
             <motion.div variants={fadeInUp} style={{ display: 'flex', justifyContent: 'center', gap: 24 }}>
@@ -246,11 +246,11 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 32 }}>
             {[
-              { icon: <Clock />, title: "Fila Zero", desc: "Triagem e admissão automatizadas. O paciente aguarda menos de 5 minutos na recepção." },
-              { icon: <Calendar />, title: "Agendamento 24/7", desc: "Sua clínica nunca fecha. Link de agendamento inteligente para seus pacientes marcarem consultas a qualquer hora." },
-              { icon: <MessageSquare />, title: "Agenda no WhatsApp", desc: "Seus especialistas recebem a lista de pacientes todas as manhãs às 06:00, direto no celular." },
+              { icon: <Clock />, title: "Fila Zero", desc: "Triagem e admissão automatizadas. O cliente aguarda menos de 5 minutos na recepção." },
+              { icon: <Calendar />, title: "Agendamento 24/7", desc: "Sua clínica nunca fecha. Link de agendamento inteligente para seus clientes marcarem consultas a qualquer hora." },
+              { icon: <MessageSquare />, title: "Agenda no WhatsApp", desc: "Seus especialistas recebem a lista de clientes todas as manhãs às 06:00, direto no celular." },
               { icon: <Building />, title: "Gestão de Salas", desc: "Painel Kanban em tempo real para otimização de consultórios e controle de fluxo." },
-              { icon: <Stethoscope />, title: "Prontuário Unificado", desc: "Integração total do histórico do paciente antes mesmo de ele entrar na sala." },
+              { icon: <Stethoscope />, title: "Prontuário Unificado", desc: "Integração total do histórico do cliente antes mesmo de ele entrar na sala." },
               { icon: <ShieldCheck />, title: "Segurança LGPD", desc: "Dados sensíveis criptografados e conformidade total com a Lei Geral de Proteção de Dados." }
             ].map((feat, i) => (
               <motion.div 
@@ -363,6 +363,202 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
           </div>
         </div>
       </section>
+
+
+      {/* Solara Voice - Voice Command Section (Motion Graphics) */}
+      <section style={{ padding: '120px 0', background: colors.primary, position: 'relative', overflow: 'hidden' }}>
+        {/* Ambient background blurs */}
+        <motion.div animate={{ x: [0, 30, 0], y: [0, -20, 0] }} transition={{ repeat: Infinity, duration: 8, ease: 'easeInOut' }} style={{ position: 'absolute', top: -150, left: -150, width: 500, height: 500, background: colors.btnSuccess, filter: 'blur(250px)', opacity: 0.12, borderRadius: '50%' }} />
+        <motion.div animate={{ x: [0, -20, 0], y: [0, 30, 0] }} transition={{ repeat: Infinity, duration: 10, ease: 'easeInOut' }} style={{ position: 'absolute', bottom: -100, right: -100, width: 400, height: 400, background: colors.cardBorder, filter: 'blur(200px)', opacity: 0.08, borderRadius: '50%' }} />
+        
+        {/* Floating particles */}
+        {[...Array(6)].map((_, i) => (
+          <motion.div
+            key={`particle-${i}`}
+            animate={{ 
+              y: [0, -40 - i * 15, 0], 
+              x: [0, (i % 2 === 0 ? 20 : -20), 0],
+              opacity: [0.15, 0.4, 0.15]
+            }}
+            transition={{ repeat: Infinity, duration: 4 + i * 0.8, ease: 'easeInOut', delay: i * 0.5 }}
+            style={{ 
+              position: 'absolute', 
+              width: 4 + i * 2, height: 4 + i * 2, 
+              borderRadius: '50%', 
+              background: i % 2 === 0 ? colors.btnSuccess : colors.cardBorder,
+              top: `${15 + i * 14}%`, 
+              left: `${10 + i * 15}%`,
+              pointerEvents: 'none'
+            }} 
+          />
+        ))}
+
+        <div style={{ ...containerStyle, padding: '0 20px', position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
+            
+            {/* Left: Content with staggered animations */}
+            <motion.div
+              initial={{ opacity: 0, x: -60 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8, ease: 'easeOut' }}
+              viewport={{ once: true }}
+            >
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                viewport={{ once: true }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', padding: '8px 20px', borderRadius: 100, marginBottom: 32 }}
+              >
+                <motion.div animate={{ scale: [1, 1.3, 1] }} transition={{ repeat: Infinity, duration: 1.5 }}>
+                  <Mic size={16} color={colors.btnSuccess} />
+                </motion.div>
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: colors.btnSuccess, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Voice Activated</span>
+              </motion.div>
+              
+              <motion.h2
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.35, duration: 0.7 }}
+                viewport={{ once: true }}
+                style={{ fontSize: '3.2rem', fontWeight: 800, color: '#fff', lineHeight: 1.15, marginBottom: 24, letterSpacing: '-0.02em' }}
+              >
+                Comande sua <br />
+                <span style={{ color: colors.btnSuccess }}>operação por voz.</span>
+              </motion.h2>
+              
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5, duration: 0.7 }}
+                viewport={{ once: true }}
+                style={{ fontSize: '1.15rem', color: 'rgba(255,255,255,0.6)', lineHeight: 1.7, marginBottom: 40 }}
+              >
+                Diga <strong style={{ color: colors.btnSuccess }}>"Solara"</strong> e deixe a IA cuidar do resto. A secretária não precisa digitar — basta falar. O sistema reconhece o comando e executa automaticamente.
+              </motion.p>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                {[
+                  '"Solara, agende o Dr. Paulo para amanhã às 14h"',
+                  '"Solara, quantos clientes temos hoje?"',
+                  '"Solara, envie lembrete para a Maria"'
+                ].map((example, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -30 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.7 + i * 0.15, duration: 0.5 }}
+                    viewport={{ once: true }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 14 }}
+                  >
+                    <motion.div 
+                      animate={{ boxShadow: [`0 0 8px ${colors.btnSuccess}`, `0 0 20px ${colors.btnSuccess}`, `0 0 8px ${colors.btnSuccess}`] }}
+                      transition={{ repeat: Infinity, duration: 2, delay: i * 0.3 }}
+                      style={{ width: 8, height: 8, borderRadius: '50%', background: colors.btnSuccess, flexShrink: 0 }} 
+                    />
+                    <span style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.75)', fontWeight: 500, fontStyle: 'italic' }}>{example}</span>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* Right: Motion Graphics Visual */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1, ease: 'easeOut' }}
+              viewport={{ once: true }}
+              style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}
+            >
+              <div style={{ position: 'relative', width: 380, height: 380, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                
+                {/* Expanding sound wave rings */}
+                {[0, 1, 2].map(i => (
+                  <motion.div
+                    key={`wave-${i}`}
+                    animate={{ scale: [1, 2.2], opacity: [0.4, 0] }}
+                    transition={{ repeat: Infinity, duration: 3, delay: i * 1, ease: 'easeOut' }}
+                    style={{ 
+                      position: 'absolute', 
+                      width: 160, height: 160, 
+                      borderRadius: '50%', 
+                      border: `1.5px solid ${colors.btnSuccess}`,
+                      top: '50%', left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      pointerEvents: 'none'
+                    }} 
+                  />
+                ))}
+
+                {/* Rotating orbit ring */}
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ repeat: Infinity, duration: 12, ease: 'linear' }}
+                  style={{ position: 'absolute', width: 320, height: 320, borderRadius: '50%', border: '1px dashed rgba(255,255,255,0.08)' }}
+                >
+                  <div style={{ position: 'absolute', top: -4, left: '50%', transform: 'translateX(-50%)', width: 8, height: 8, borderRadius: '50%', background: colors.btnSuccess, boxShadow: `0 0 12px ${colors.btnSuccess}` }} />
+                </motion.div>
+
+                {/* Counter-rotating orbit */}
+                <motion.div
+                  animate={{ rotate: -360 }}
+                  transition={{ repeat: Infinity, duration: 18, ease: 'linear' }}
+                  style={{ position: 'absolute', width: 360, height: 360, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.04)' }}
+                >
+                  <div style={{ position: 'absolute', bottom: -3, right: '30%', width: 6, height: 6, borderRadius: '50%', background: colors.cardBorder, boxShadow: `0 0 8px ${colors.cardBorder}` }} />
+                </motion.div>
+
+                {/* Audio Waveform Equalizer */}
+                <div style={{ position: 'absolute', bottom: 40, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 4, alignItems: 'flex-end' }}>
+                  {[0.4, 0.7, 1, 0.6, 0.9, 0.5, 0.8, 1, 0.3, 0.7, 0.5, 0.9].map((h, i) => (
+                    <motion.div
+                      key={`bar-${i}`}
+                      animate={{ height: [h * 12, h * 28, h * 12] }}
+                      transition={{ repeat: Infinity, duration: 0.8 + Math.random() * 0.6, delay: i * 0.08, ease: 'easeInOut' }}
+                      style={{ width: 3, borderRadius: 4, background: `linear-gradient(to top, ${colors.btnSuccess}40, ${colors.btnSuccess})` }}
+                    />
+                  ))}
+                </div>
+
+                {/* Static outer ring */}
+                <div style={{ width: 280, height: 280, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'absolute' }} />
+
+                {/* Middle ring with subtle pulse */}
+                <motion.div
+                  animate={{ scale: [1, 1.03, 1] }}
+                  transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
+                  style={{ width: 220, height: 220, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'absolute' }}
+                />
+
+                {/* Core: Mic Icon with glow */}
+                <div style={{ width: 140, height: 140, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 8, position: 'relative', zIndex: 2 }}>
+                  <motion.div
+                    animate={{ scale: [1, 1.2, 1], filter: [`drop-shadow(0 0 8px ${colors.btnSuccess}40)`, `drop-shadow(0 0 20px ${colors.btnSuccess}80)`, `drop-shadow(0 0 8px ${colors.btnSuccess}40)`] }}
+                    transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+                  >
+                    <Mic size={44} color={colors.btnSuccess} />
+                  </motion.div>
+                  <motion.span
+                    animate={{ opacity: [0.5, 1, 0.5] }}
+                    transition={{ repeat: Infinity, duration: 2 }}
+                    style={{ fontSize: '0.75rem', fontWeight: 700, color: colors.btnSuccess, letterSpacing: '0.12em', textTransform: 'uppercase' }}
+                  >
+                    Ouvindo...
+                  </motion.span>
+                </div>
+
+                {/* Central glow */}
+                <motion.div
+                  animate={{ opacity: [0.1, 0.25, 0.1], scale: [1, 1.1, 1] }}
+                  transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
+                  style={{ position: 'absolute', width: 200, height: 200, background: colors.btnSuccess, filter: 'blur(80px)', borderRadius: '50%', pointerEvents: 'none' }}
+                />
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
 
       {/* Pricing Section */}
       <section id="planos" style={{ padding: '120px 0', background: colors.cardBg, borderTop: `1px solid ${colors.cardBorder}30`, borderBottom: `1px solid ${colors.cardBorder}30`, marginBottom: '120px' }}>

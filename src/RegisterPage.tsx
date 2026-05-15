@@ -73,7 +73,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, onBack, 
           </div>
           
           <p style={{ textAlign: 'center', fontSize: '0.85rem', color: colors.textMuted, marginBottom: 32, lineHeight: 1.6 }}>
-            Crie a conta da sua clínica agora e transforme o atendimento aos seus pacientes.
+            Crie a conta da sua clínica agora e transforme o atendimento aos seus clientes.
           </p>
 
           {error && (

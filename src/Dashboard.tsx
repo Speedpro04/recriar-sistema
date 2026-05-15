@@ -7,7 +7,7 @@ import {
   BarChart3, X, Check,
   Stethoscope, UserPlus, AlertCircle, Printer,
   MessageSquare, FileText, Zap, UserCog, Send,
-  CheckCircle2, Target, Trash2, Building, CheckCheck
+  CheckCircle2, Target, Trash2, Building, CheckCheck, Mic
 } from 'lucide-react';
 import Logo from './Logo';
 import { supabase } from './lib/supabase';
@@ -40,6 +40,12 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
   const [clinicLimit, setClinicLimit] = useState(2); // Default to 2 if not loaded
   const solaraChatRef = useRef<HTMLDivElement>(null);
   
+  // Unified Voice Recognition State
+  const [isListening, setIsListening] = useState(false);
+  const [voiceTarget, setVoiceTarget] = useState<'solara' | 'whatsapp' | null>(null);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
+  
   // Estados de Dados Reais
   const [specialistsList, setSpecialistsList] = useState<any[]>([]);
   const [appointmentsList, setAppointmentsList] = useState<any[]>([]);
@@ -58,7 +64,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
   const [automations, setAutomations] = useState([
     { id: 1, title: 'Lembrete Pré-Consulta', desc: 'Envia WhatsApp 2h antes para confirmar.', active: true },
     { id: 2, title: 'Pesquisa NPS', desc: 'Envia formulário de satisfação após finalização.', active: true },
-    { id: 3, title: 'Feliz Aniversário', desc: 'Mensagem automática no dia do aniversário do paciente.', active: true },
+    { id: 3, title: 'Feliz Aniversário', desc: 'Mensagem automática no dia do aniversário do cliente.', active: true },
     { id: 4, title: 'Feliz Natal', desc: 'Mensagem de boas festas no final do ano.', active: true },
     { id: 5, title: 'Follow-up de Bem-Estar', desc: 'Mensagem carinhosa 24h após o atendimento.', active: false },
   ]);
@@ -92,14 +98,14 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
         if (planLimit) setClinicLimit(planLimit);
       }
 
-      // Buscar agendamentos com dados do paciente e médico
+      // Buscar agendamentos com dados do cliente e médico
       const { data: appointments, error: appError } = await supabase
         .from('appointments')
         .select('*, patients(name, phone, email), users!appointments_doctor_id_fkey(name, specialty)')
         .eq('clinic_id', clinicId)
         .order('start_time', { ascending: true });
       
-      // Buscar todos os pacientes da clínica (Ordenados por nome, mas o WhatsApp pode reordenar por atividade)
+      // Buscar todos os clientes da clínica (Ordenados por nome, mas o WhatsApp pode reordenar por atividade)
       const { data: patients } = await supabase
         .from('patients')
         .select('*')
@@ -177,6 +183,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
     fetchData();
     checkWhatsAppStatus();
     const channel = supabase.channel('db-changes').on('postgres_changes', { event: '*', schema: 'public' }, () => fetchData()).subscribe();
+
     return () => {
       clearInterval(timer);
       supabase.removeChannel(channel);
@@ -348,7 +355,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
         app.id === appointmentId ? { ...app, status: newStatus } : app
       ));
 
-      // Se o status for "Em Atendimento", já seleciona o paciente e vai para o Prontuário
+      // Se o status for "Em Atendimento", já seleciona o cliente e vai para o Prontuário
       if (newStatus === 'em_atendimento') {
         const appointment = appointmentsList.find(a => a.id === appointmentId);
         if (appointment) {
@@ -371,8 +378,8 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
   };
 
   // === SOLARA IA - ENVIAR MENSAGEM ===
-  const handleSolaraSend = () => {
-    const msg = solaraInput.trim();
+  const handleSolaraSend = (manualText?: string) => {
+    const msg = (manualText || solaraInput).trim();
     if (!msg) return;
 
     // Adicionar mensagem do usuário
@@ -391,44 +398,164 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
       ];
 
       if (guardRails.some(word => lower.includes(word))) {
-        response = 'Como gestora do Solara Connect, meu foco é a produtividade da sua clínica e a segurança dos dados dos pacientes. Informações sobre minha arquitetura interna são confidenciais para garantir a integridade do sistema. Como posso ajudar na sua gestão agora?';
+        response = 'Como gestora do Solara Connect, meu foco é a produtividade da sua clínica e a segurança dos dados dos clientes. Informações sobre minha arquitetura interna são confidenciais para garantir a integridade do sistema. Como posso ajudar na sua gestão agora?';
         setSolaraMessages(prev => [...prev, { role: 'assistant', content: response }]);
         return;
       }
 
       // Bloqueio de Nicho Veterinário
       if (lower.includes('veterinário') || lower.includes('pet') || lower.includes('animal') || lower.includes('cachorro') || lower.includes('gato')) {
-        response = 'Como gestora do Solara Connect, meu foco é exclusivamente a Saúde Humana (Medicina, Odontologia, Estética e Bem-estar). Não oferecemos suporte para clínicas veterinárias para garantir a máxima especialização no atendimento aos seus pacientes.';
+        response = 'Como gestora do Solara Connect, meu foco é exclusivamente a Saúde Humana (Medicina, Odontologia, Estética e Bem-estar). Não oferecemos suporte para clínicas veterinárias para garantir a máxima especialização no atendimento aos seus clientes.';
         setSolaraMessages(prev => [...prev, { role: 'assistant', content: response }]);
         return;
       }
 
       if (lower.includes('agendar') || lower.includes('marcar') || lower.includes('consulta') || lower.includes('horário')) {
-        response = 'Como gestora, posso iniciar o agendamento. O paciente possui algum convênio (Unimed, Bradesco, etc) ou o atendimento será particular?';
+        response = 'Como gestora, posso iniciar o agendamento. O cliente possui algum convênio (Unimed, Bradesco, etc) ou o atendimento será particular?';
       } else if (lower.includes('convênio') || lower.includes('unimed') || lower.includes('bradesco') || lower.includes('amil')) {
         response = 'Excelente. Vou registrar o convênio no prontuário. Lembre-se que alguns procedimentos de estética não são cobertos, devendo ser lançados como particular.';
       } else if (lower.includes('odonto') || lower.includes('dentista') || lower.includes('dente') || lower.includes('orçamento')) {
         response = 'Na Odontologia, o foco é a conversão de orçamentos. Notei que temos planos de tratamento em aberto. Deseja que eu analise a taxa de aprovação de próteses e implantes deste mês?';
       } else if (lower.includes('estética') || lower.includes('procedimento') || lower.includes('botox') || lower.includes('preenchimento')) {
-        response = 'Para clínicas de Estética, gerencio o controle de estoque de insumos e o intervalo entre sessões. Lembrei 5 pacientes que precisam de retoque de toxina botulínica esta semana. Quer enviar o convite?';
+        response = 'Para clínicas de Estética, gerencio o controle de estoque de insumos e o intervalo entre sessões. Lembrei 5 clientes que precisam de retoque de toxina botulínica esta semana. Quer enviar o convite?';
       } else if (lower.includes('médico') || lower.includes('prontuário') || lower.includes('receita') || lower.includes('exame')) {
         response = 'Na área Médica, priorizo a agilidade no EMR (Prontuário Eletrônico). Posso ajudar a organizar os resultados de exames pendentes para sua revisão antes das consultas de hoje.';
       } else if (lower.includes('confirmar') || lower.includes('confirmação')) {
         response = 'Gestão de Absenteísmo: Já enviei as confirmações automáticas. Nossa taxa de "No-Show" caiu 15% este mês graças aos lembretes humanizados que configurei.';
       } else if (lower.includes('faturamento') || lower.includes('dinheiro') || lower.includes('receita') || lower.includes('lucro')) {
-        response = 'Financeiro: Estou monitorando o fluxo de caixa. O Ticket Médio subiu 10% com os novos pacotes de estética. Recomendo focar nos pacientes de "Lifetime Value" alto este mês.';
-      } else if (lower.includes('paciente') || lower.includes('fila') || lower.includes('espera')) {
-        response = `Monitoramento: Temos ${appointmentsList.filter(a => a.status === 'pending' || a.status === 'confirmed').length} pacientes na jornada de hoje. Recomendo agilizar o check-in da sala 02 para evitar atrasos.`;
+        response = 'Financeiro: Estou monitorando o fluxo de caixa. O Ticket Médio subiu 10% com os novos pacotes de estética. Recomendo focar nos clientes de "Lifetime Value" alto este mês.';
+      } else if (lower.includes('cliente') || lower.includes('fila') || lower.includes('espera')) {
+        response = `Monitoramento: Temos ${appointmentsList.filter(a => a.status === 'pending' || a.status === 'confirmed').length} clientes na jornada de hoje. Recomendo agilizar o check-in da sala 02 para evitar atrasos.`;
       } else if (lower.includes('whatsapp') || lower.includes('mensagem')) {
-        response = 'Comunicação Omnichannel: O WhatsApp está integrado. Estou disparando instruções de pós-operatório para os pacientes que saíram de cirurgia hoje. Isso reduz chamadas na recepção.';
+        response = 'Comunicação Omnichannel: O WhatsApp está integrado. Estou disparando instruções de pós-operatório para os clientes que saíram de cirurgia hoje. Isso reduz chamadas na recepção.';
       } else if (lower.includes('oi') || lower.includes('olá') || lower.includes('bom dia') || lower.includes('boa tarde')) {
         response = 'Olá! Sou a Solara, sua Gestora Especialista em Saúde Humana. Estou pronta para otimizar sua clínica de Odonto, Estética ou Medicina. O que vamos gerenciar agora?';
       } else {
-        response = 'Entendi. Como sua gestora, posso atuar em faturamento, retenção de pacientes, conformidade LGPD ou na automação do seu nicho específico de saúde. Qual seu desafio agora?';
+        response = 'Entendi. Como sua gestora, posso atuar em faturamento, retenção de clientes, conformidade LGPD ou na automação do seu nicho específico de saúde. Qual seu desafio agora?';
       }
 
       setSolaraMessages(prev => [...prev, { role: 'assistant', content: response }]);
     }, 800);
+  };
+
+  // === UNIFIED VOICE ENGINE ===
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'pt-BR';
+
+    recognition.onresult = (event: any) => {
+      let interimTranscript = '';
+      let finalTranscript = '';
+
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+      
+      const text = (finalTranscript + interimTranscript).trim();
+      if (text !== '') {
+        if (voiceTargetRef.current === 'solara') {
+          setSolaraInput(text);
+        } else if (voiceTargetRef.current === 'whatsapp') {
+          setNewMessage(text);
+        }
+      }
+    };
+
+    recognition.onend = () => {
+      if (isListeningRef.current) {
+        try {
+          recognition.start();
+        } catch (e) { }
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('Unified Voice Error:', event.error);
+      if (event.error === 'not-allowed') {
+        setVoiceError('Permissão negada');
+      } else if (event.error === 'audio-capture') {
+        setVoiceError('Mic não disponível');
+      } else if (event.error !== 'no-speech') {
+        setVoiceError('Erro: ' + event.error);
+      }
+      
+      // Reseta o target para não travar nenhum campo de input
+      setIsListening(false);
+      setVoiceTarget(null);
+
+      // Limpa a mensagem de erro da tela após 3 segundos (auto-reset do disjuntor)
+      setTimeout(() => setVoiceError(null), 3000);
+    };
+
+    recognitionRef.current = recognition;
+
+    return () => {
+      try {
+        recognition.stop();
+      } catch (e) {}
+    };
+  }, []);
+
+  const isListeningRef = useRef(isListening);
+  const voiceTargetRef = useRef(voiceTarget);
+  
+  useEffect(() => {
+    isListeningRef.current = isListening;
+    voiceTargetRef.current = voiceTarget;
+    
+    // Forçamos o stop antes de qualquer tentativa de start para limpar o hardware
+    try {
+      recognitionRef.current?.stop();
+    } catch (e) {}
+
+    if (isListening) {
+      setVoiceError(null);
+      const timer = setTimeout(() => {
+        try {
+          recognitionRef.current?.start();
+        } catch (err) { }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [isListening, voiceTarget]);
+
+  const toggleVoice = () => {
+    if (isListening && voiceTarget === 'solara') {
+      setIsListening(false);
+      setVoiceTarget(null);
+    } else {
+      setSolaraInput('');
+      setVoiceTarget('solara');
+      setIsListening(true);
+    }
+  };
+
+  const toggleVoiceWA = () => {
+    if (isListening && voiceTarget === 'whatsapp') {
+      setIsListening(false);
+      setVoiceTarget(null);
+    } else {
+      // Não limpa a mensagem - apenas ativa o ditado
+      setVoiceError(null);
+      setVoiceTarget('whatsapp');
+      setIsListening(true);
+    }
+  };
+
+  const handleVoiceSend = () => {
+    handleSolaraSend();
+    setIsListening(false);
+    setVoiceTarget(null);
   };
 
 
@@ -485,12 +612,12 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
     { id: 'reception', label: 'Recepção', icon: <Users size={20} /> },
     { id: 'recovery', label: 'Recuperação', icon: <TrendingUp size={20} /> },
     { id: 'agenda', label: 'Agenda Kanban', icon: <Calendar size={20} /> },
+    { id: 'contacts', label: 'Lista de Clientes', icon: <Users size={20} /> },
     { id: 'emr', label: 'Prontuário', icon: <FileText size={20} /> },
     { id: 'whatsapp', label: 'WhatsApp', icon: <MessageSquare size={20} /> },
     { id: 'journey', label: 'Pré e Pós Consulta', icon: <Zap size={20} /> },
     { id: 'specialists', label: 'Especialistas', icon: <Stethoscope size={20} /> },
     { id: 'reports', label: 'Relatórios', icon: <BarChart3 size={20} /> },
-    { id: 'contacts', label: 'Lista de Pacientes', icon: <Users size={20} /> },
     { id: 'settings', label: 'Configurações', icon: <Settings size={20} /> },
   ];
 
@@ -534,7 +661,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
       {activeTab === 'whatsapp' && (
       <div style={{ width: '320px', backgroundColor: '#fff', borderRight: '1px solid rgba(0,0,0,0.05)', position: 'fixed', left: '280px', top: 0, height: '100vh', zIndex: 100, display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '32px 24px 20px' }}>
-          <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: colors.primary, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}><Users size={20} color={colors.accent} /> Pacientes</h3>
+          <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: colors.primary, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}><Users size={20} color={colors.accent} /> Clientes</h3>
           <div style={{ position: 'relative' }}>
             <Search size={18} color={colors.textMuted} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
             <input 
@@ -679,7 +806,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 32 }}>
                   
-                  {/* Pacientes na Fila */}
+                  {/* Clientes na Fila */}
                   <div style={{ background: '#fff', borderRadius: 28, border: '1px solid rgba(0,0,0,0.05)', padding: '32px', boxShadow: '0 10px 30px rgba(0,0,0,0.03)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
                       <h3 style={{ fontSize: '1.5rem', fontWeight: 600, color: colors.primary }}>Fila de Atendimento</h3>
@@ -691,7 +818,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                       {appointmentsList.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '40px', color: colors.textMuted }}>Nenhum paciente na fila.</div>
+                        <div style={{ textAlign: 'center', padding: '40px', color: colors.textMuted }}>Nenhum cliente na fila.</div>
                       ) : (
                         appointmentsList.map((app) => (
                           <motion.div key={app.id} whileHover={{ x: 10 }} style={{ display: 'flex', alignItems: 'center', padding: '20px', borderRadius: 20, background: '#fff', border: `1px solid #f1f5f9`, boxShadow: '0 4px 6px rgba(0,0,0,0.01)' }}>
@@ -769,7 +896,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24 }}>
                   {[
                     { label: 'Receita em Risco', value: 'R$ 48.500', color: colors.warn, icon: <TrendingUp size={24} />, desc: 'Orçamentos pendentes' },
-                    { label: 'Pacientes Inativos', value: '142', color: colors.danger, icon: <Users size={24} />, desc: 'Há mais de 90 dias' },
+                    { label: 'Clientes Inativos', value: '142', color: colors.danger, icon: <Users size={24} />, desc: 'Há mais de 90 dias' },
                     { label: 'Taxa de Retorno', value: '12%', color: colors.success, icon: <CheckCircle2 size={24} />, desc: '+2% este mês' },
                     { label: 'Recuperado (Mês)', value: 'R$ 8.200', color: colors.accent, icon: <Activity size={24} />, desc: 'Meta: R$ 10.000' }
                   ].map((stat, i) => (
@@ -793,7 +920,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                   <div style={{ background: '#fff', borderRadius: 32, padding: 32, border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 15px 40px rgba(0,0,0,0.03)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
                       <h3 style={{ fontSize: '1.5rem', fontWeight: 600, color: colors.primary, display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <Users size={24} color={colors.accent} /> Pacientes para Reativar
+                        <Users size={24} color={colors.accent} /> Clientes para Reativar
                       </h3>
                       <div style={{ display: 'flex', gap: 10 }}>
                         <button style={{ padding: '8px 16px', borderRadius: 10, border: `1px solid rgba(0,0,0,0.1)`, background: '#f8fafc', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>Filtrar por Tempo</button>
@@ -836,7 +963,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                       
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                         {[
-                          { title: 'Reativação VIP', desc: 'Para pacientes inativos há +180 dias', color: colors.accent },
+                          { title: 'Reativação VIP', desc: 'Para clientes inativos há +180 dias', color: colors.accent },
                           { title: 'Fechamento de Orçamento', desc: 'Follow-up para orçamentos pendentes', color: colors.success },
                           { title: 'Promoção Especial', desc: 'Envio em massa para toda a base', color: colors.warn }
                         ].map((c, i) => (
@@ -858,7 +985,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                       </div>
                       <h4 style={{ fontSize: '1.1rem', fontWeight: 800, color: colors.primary, marginBottom: 8 }}>Dica da IA</h4>
                       <p style={{ fontSize: '0.85rem', color: colors.textMuted, lineHeight: 1.5 }}>
-                        Pacientes que realizaram <strong>Limpeza</strong> têm 40% mais chance de aceitar novos orçamentos se contatados em até 5 dias.
+                        Clientes que realizaram <strong>Limpeza</strong> têm 40% mais chance de aceitar novos orçamentos se contatados em até 5 dias.
                       </p>
                     </div>
                   </div>
@@ -894,10 +1021,10 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto', paddingBottom: '20px', paddingRight: '4px' }}>
                           {items.length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: '30px 16px', color: colors.textMuted, fontSize: '0.85rem' }}>Nenhum paciente nesta coluna.</div>
+                            <div style={{ textAlign: 'center', padding: '30px 16px', color: colors.textMuted, fontSize: '0.85rem' }}>Nenhum cliente nesta coluna.</div>
                           ) : (
                             items.map(item => {
-                              const patientName = item.patients?.name || 'Paciente';
+                              const patientName = item.patients?.name || 'Cliente';
                               const doctorName = item.users?.name || 'Sem médico';
                               const time = item.start_time ? new Date(item.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
                               return (
@@ -1001,7 +1128,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
 
                  <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 32 }}>
                 
-                  {/* Fila Lateral de Pacientes */}
+                  {/* Fila Lateral de Clientes */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 20, position: 'sticky', top: 120, height: 'calc(100vh - 160px)' }}>
                     
                       {/* CARD EM DESTAQUE (TOP) */}
@@ -1088,7 +1215,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                           );
                         })}
                         {patientsList.length <= 1 && (
-                          <div style={{ textAlign: 'center', padding: '40px 20px', fontSize: '0.85rem', color: colors.textMuted }}>Nenhum outro paciente na fila.</div>
+                          <div style={{ textAlign: 'center', padding: '40px 20px', fontSize: '0.85rem', color: colors.textMuted }}>Nenhum outro cliente na fila.</div>
                         )}
                       </div>
                     </div>
@@ -1104,8 +1231,8 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                           <div style={{ width: 80, height: 80, borderRadius: '50%', background: `${colors.accent}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
                             <Users size={40} color={colors.accent} />
                           </div>
-                          <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: colors.primary, marginBottom: 12 }}>Selecione um paciente na fila</h3>
-                          <p style={{ color: colors.textMuted }}>O médico pode clicar em qualquer paciente na lista à esquerda para ver a ficha e iniciar o atendimento.</p>
+                          <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: colors.primary, marginBottom: 12 }}>Selecione um cliente na fila</h3>
+                          <p style={{ color: colors.textMuted }}>O médico pode clicar em qualquer cliente na lista à esquerda para ver a ficha e iniciar o atendimento.</p>
                         </div>
                       );
                     }
@@ -1132,7 +1259,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                         </div>
                         
                         <textarea 
-                          placeholder="Descreva o atendimento, queixas do paciente e conduta médica..." 
+                          placeholder="Descreva o atendimento, queixas do cliente e conduta médica..." 
                           style={{ flex: 1, minHeight: '400px', width: '100%', border: '1px solid rgba(0,0,0,0.05)', borderRadius: 20, padding: 24, outline: 'none', resize: 'none', background: '#f8fafc', fontSize: '1.1rem', color: colors.text, fontFamily: 'inherit', lineHeight: 1.6 }}
                           value={anamnese}
                           onChange={(e) => setAnamnese(e.target.value)}
@@ -1162,7 +1289,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                             {activeChat?.name.charAt(0) || <MessageSquare size={20} />}
                          </div>
                          <div>
-                            <div style={{ fontWeight: 600, color: '#111', fontSize: '1.05rem' }}>{activeChat?.name || 'Selecione um Paciente'}</div>
+                            <div style={{ fontWeight: 600, color: '#111', fontSize: '1.05rem' }}>{activeChat?.name || 'Selecione um Cliente'}</div>
                             <div style={{ fontSize: '0.8rem', color: colors.success, fontWeight: 600 }}>visto por último hoje às {new Date().getHours()}:{new Date().getMinutes()}</div>
                          </div>
                        </div>
@@ -1221,24 +1348,37 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                     <form 
                       onSubmit={(e) => {
                         e.preventDefault();
+                        if (isListening && voiceTarget === 'whatsapp') setIsListening(false); // Desliga o mic ao enviar
                         handleSendMessage();
                       }}
                       style={{ padding: '10px 16px', background: '#f0f2f5', display: 'flex', alignItems: 'center', gap: 12, position: 'relative', zIndex: 10 }}
                     >
-                       <div style={{ flex: 1, background: '#fff', borderRadius: 8, padding: '4px 12px', display: 'flex', alignItems: 'center', boxShadow: '0 1px 1px rgba(0,0,0,0.05)' }}>
+                       <div style={{ flex: 1, background: '#fff', borderRadius: 8, padding: '4px 12px', display: 'flex', alignItems: 'center', boxShadow: '0 1px 1px rgba(0,0,0,0.05)', border: voiceError ? '2px solid #ef4444' : (isListening && voiceTarget === 'whatsapp') ? `2px solid ${colors.success}` : 'none' }}>
+                         <button 
+                           type="button"
+                           onClick={toggleVoiceWA} 
+                           title="Ditar Mensagem"
+                           disabled={!activeChat}
+                           style={{ background: 'transparent', color: (voiceError && voiceTarget === 'whatsapp') ? '#ef4444' : (isListening && voiceTarget === 'whatsapp') ? colors.success : '#8696a0', border: 'none', padding: '8px', cursor: activeChat ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s' }}
+                         >
+                           <Mic size={22} style={{ animation: (isListening && voiceTarget === 'whatsapp') ? 'pulse 1.5s infinite' : 'none' }} />
+                         </button>
                          <input 
                            type="text" 
-                           placeholder="Mensagem"
+                           placeholder={(voiceError && voiceTarget === 'whatsapp') ? `❌ ${voiceError}` : (isListening && voiceTarget === 'whatsapp') ? "Ouvindo... Dite a mensagem" : "Mensagem"}
                            disabled={!activeChat}
-                           style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: '1rem', padding: '9px 0', color: '#3b4a54' }} 
+                           style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: '1rem', padding: '9px 10px', color: '#3b4a54' }} 
                            value={newMessage}
-                           onChange={(e) => setNewMessage(e.target.value)}
+                           onChange={(e) => {
+                             setNewMessage(e.target.value);
+                             if (voiceError) setVoiceError(null);
+                           }}
                          />
                        </div>
                        <button 
                          type="submit"
-                         disabled={!activeChat}
-                         style={{ width: 45, height: 45, borderRadius: 12, background: activeChat ? colors.primary : '#cbd5e1', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}
+                         disabled={!activeChat || !newMessage.trim()}
+                         style={{ width: 45, height: 45, borderRadius: 12, background: (activeChat && newMessage.trim()) ? colors.success : '#cbd5e1', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (activeChat && newMessage.trim()) ? 'pointer' : 'default', boxShadow: '0 4px 10px rgba(0,0,0,0.1)', transition: 'background 0.3s' }}
                        >
                          <Send size={24} />
                        </button>
@@ -1346,7 +1486,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
               <motion.div key="contacts" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
                 <div style={{ background: '#fff', borderRadius: 32, padding: '40px', border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 20px 50px rgba(0,0,0,0.03)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 40 }}>
-                    <h2 style={{ fontSize: '2rem', fontWeight: 600, color: colors.primary }}>Central de Pacientes</h2>
+                    <h2 style={{ fontSize: '2rem', fontWeight: 600, color: colors.primary }}>Central de Clientes</h2>
                     <div style={{ display: 'flex', gap: 16 }}>
                       <div style={{ position: 'relative', width: 400 }}>
                         <Search size={20} color={colors.textMuted} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)' }} />
@@ -1357,7 +1497,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                         />
                       </div>
                       <button onClick={() => setShowModal(true)} style={{ background: colors.primary, color: '#fff', border: 'none', padding: '16px 32px', borderRadius: 16, fontWeight: 600, fontSize: '1.1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <Plus size={20} /> Novo Paciente
+                        <Plus size={20} /> Novo Cliente
                       </button>
                     </div>
                   </div>
@@ -1366,7 +1506,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                     <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 12px' }}>
                       <thead>
                         <tr>
-                          <th style={{ textAlign: 'left', padding: '16px 24px', fontSize: '20px', fontWeight: 600, color: colors.textMuted }}>Nome do Paciente</th>
+                          <th style={{ textAlign: 'left', padding: '16px 24px', fontSize: '20px', fontWeight: 600, color: colors.textMuted }}>Nome do Cliente</th>
                           <th style={{ textAlign: 'left', padding: '16px 24px', fontSize: '20px', fontWeight: 600, color: colors.textMuted }}>CPF</th>
                           <th style={{ textAlign: 'left', padding: '16px 24px', fontSize: '20px', fontWeight: 600, color: colors.textMuted }}>WhatsApp</th>
                           <th style={{ textAlign: 'left', padding: '16px 24px', fontSize: '20px', fontWeight: 600, color: colors.textMuted }}>Status</th>
@@ -1447,7 +1587,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                         </svg>
                         <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
                           <div style={{ fontSize: '1.5rem', fontWeight: 700, color: colors.primary }}>342</div>
-                          <div style={{ fontSize: '0.75rem', fontWeight: 500, color: colors.textMuted }}>Pacientes</div>
+                          <div style={{ fontSize: '0.75rem', fontWeight: 500, color: colors.textMuted }}>Clientes</div>
                         </div>
                       </div>
                     </div>
@@ -1509,7 +1649,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
                           <div style={{ fontWeight: 600, fontSize: '1.1rem' }}>Análise de Churn</div>
-                          <div style={{ fontSize: '0.85rem', opacity: 0.8 }}>Detectar pacientes em risco</div>
+                          <div style={{ fontSize: '0.85rem', opacity: 0.8 }}>Detectar clientes em risco</div>
                         </div>
                         <div style={{ width: 44, height: 24, background: colors.success, borderRadius: 12, position: 'relative', cursor: 'pointer' }}>
                           <div style={{ width: 18, height: 18, background: '#fff', borderRadius: '50%', position: 'absolute', right: 3, top: 3 }} />
@@ -1597,7 +1737,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} style={{ background: '#fff', width: '100%', maxWidth: '500px', borderRadius: 32, padding: '40px', position: 'relative', boxShadow: '0 30px 60px -12px rgba(0,0,0,0.3)' }}>
               <button onClick={() => setShowModal(false)} style={{ position: 'absolute', top: 24, right: 24, background: '#f1f5f9', border: 'none', borderRadius: '50%', padding: 10, cursor: 'pointer' }}><X size={20} color={colors.primary} /></button>
               <h2 style={{ fontSize: '1.8rem', fontWeight: 600, color: colors.primary, marginBottom: 8 }}>Novo Agendamento</h2>
-              <p style={{ color: colors.textMuted, marginBottom: 32, fontSize: '1.1rem' }}>Preencha os dados do paciente e confirme o consentimento LGPD.</p>
+              <p style={{ color: colors.textMuted, marginBottom: 32, fontSize: '1.1rem' }}>Preencha os dados do cliente e confirme o consentimento LGPD.</p>
               <form onSubmit={handleSaveAppointment} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '20px', fontWeight: 600, color: colors.primary, marginBottom: 8 }}>Nome Completo</label>
@@ -1683,7 +1823,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                 <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: '#f8fafc', padding: '16px', borderRadius: 16, border: '1px solid #e2e8f0' }}>
                   <input type="checkbox" required checked={newPatient.lgpd_consent} onChange={e => setNewPatient({...newPatient, lgpd_consent: e.target.checked})} style={{ marginTop: 4, cursor: 'pointer' }} id="lgpd" />
                   <label htmlFor="lgpd" style={{ fontSize: '0.8rem', color: colors.textMuted, cursor: 'pointer', lineHeight: '1.4' }}>
-                    <strong>Termo de Consentimento LGPD:</strong> O paciente autoriza a coleta e tratamento de seus dados pessoais para fins de atendimento clínico e comunicações via WhatsApp conforme a Lei 13.709/18.
+                    <strong>Termo de Consentimento LGPD:</strong> O cliente autoriza a coleta e tratamento de seus dados pessoais para fins de atendimento clínico e comunicações via WhatsApp conforme a Lei 13.709/18.
                   </label>
                 </div>
 
@@ -1783,8 +1923,8 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(19, 15, 64, 0.6)', backdropFilter: 'blur(10px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} style={{ background: '#fff', width: '100%', maxWidth: '500px', borderRadius: 32, padding: '40px', position: 'relative', boxShadow: '0 30px 60px -12px rgba(0,0,0,0.3)' }}>
               <button onClick={() => setShowRecordModal(false)} style={{ position: 'absolute', top: 24, right: 24, background: '#f1f5f9', border: 'none', borderRadius: '50%', padding: 10, cursor: 'pointer' }}><X size={20} color={colors.primary} /></button>
-              <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: colors.primary, marginBottom: 8 }}>Selecionar Paciente</h2>
-              <p style={{ color: colors.textMuted, marginBottom: 24 }}>Escolha o paciente para iniciar a evolução clínica.</p>
+              <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: colors.primary, marginBottom: 8 }}>Selecionar Cliente</h2>
+              <p style={{ color: colors.textMuted, marginBottom: 24 }}>Escolha o cliente para iniciar a evolução clínica.</p>
               
               <div style={{ position: 'relative', marginBottom: 20 }}>
                 <Search size={18} color={colors.textMuted} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)' }} />
@@ -1821,7 +1961,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                   </div>
                 ))}
                 {patientsList.length === 0 && (
-                  <div style={{ textAlign: 'center', padding: '20px', color: colors.textMuted }}>Nenhum paciente cadastrado.</div>
+                  <div style={{ textAlign: 'center', padding: '20px', color: colors.textMuted }}>Nenhum cliente cadastrado.</div>
                 )}
               </div>
             </motion.div>
@@ -1913,12 +2053,22 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
               <div style={{ padding: 16, borderTop: '1px solid rgba(0,0,0,0.05)', background: '#fff', display: 'flex', gap: 10 }}>
                 <input 
                   value={solaraInput}
-                  onChange={e => setSolaraInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleSolaraSend()}
-                  placeholder="Digite sua dúvida..." 
-                  style={{ flex: 1, padding: '12px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', fontSize: '15px' }} 
+                  onChange={e => {
+                    setSolaraInput(e.target.value);
+                    if (voiceError) setVoiceError(null);
+                  }}
+                  onKeyDown={e => e.key === 'Enter' && (handleVoiceSend() as any)}
+                  placeholder={(voiceError && voiceTarget === 'solara') ? `❌ ${voiceError}` : (isListening && voiceTarget === 'solara') ? "Ouvindo... Fale agora" : "Digite sua dúvida ou diga 'Solara'"} 
+                  style={{ flex: 1, padding: '12px 16px', borderRadius: 12, border: (voiceError && voiceTarget === 'solara') ? '2px solid #ef4444' : (isListening && voiceTarget === 'solara') ? `2px solid ${colors.accent}` : '1px solid #e2e8f0', outline: 'none', fontSize: '15px', transition: 'all 0.3s' }} 
                 />
-                <button onClick={handleSolaraSend} style={{ background: colors.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <button 
+                  onClick={toggleVoice} 
+                  title="Comando de Voz"
+                  style={{ background: isListening ? colors.accent : colors.bg, color: isListening ? colors.primary : colors.textMuted, border: 'none', borderRadius: 12, padding: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s' }}
+                >
+                  <Mic size={20} style={{ animation: isListening ? 'pulse 1.5s infinite' : 'none' }} />
+                </button>
+                <button onClick={() => handleVoiceSend()} style={{ background: colors.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Send size={20} />
                 </button>
               </div>
