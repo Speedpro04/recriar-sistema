@@ -1904,7 +1904,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
               
               <div ref={solaraChatRef} style={{ flex: 1, padding: 20, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, background: '#f8fafc' }}>
                 {solaraMessages.map((m, i) => (
-                  <div key={i} style={{ alignSelf: m.role === 'assistant' ? 'flex-start' : 'flex-end', background: m.role === 'assistant' ? '#fff' : colors.primary, color: m.role === 'assistant' ? colors.primary : '#fff', padding: '12px 16px', borderRadius: m.role === 'assistant' ? '0 16px 16px 16px' : '16px 16px 0 16px', fontSize: '15px', fontWeight: 500, maxWidth: '85%', boxShadow: '0 4px 10px rgba(0,0,0,0.02)', border: m.role === 'assistant' ? '1px solid rgba(0,0,0,0.05)' : 'none' }}>
+                  <div key={i} style={{ alignSelf: m.role === 'assistant' ? 'flex-start' : 'flex-end', background: m.role === 'assistant' ? '#fff' : colors.primary, color: m.role === 'assistant' ? colors.primary : '#fff', padding: '12px 16px', borderRadius: m.role === 'assistant' ? '0 16px 16px 16px' : '16px 16px 0 16px', fontSize: '15px', fontWeight: 400, maxWidth: '85%', boxShadow: '0 4px 10px rgba(0,0,0,0.02)', border: m.role === 'assistant' ? '1px solid rgba(0,0,0,0.05)' : 'none' }}>
                     {m.content}
                   </div>
                 ))}
