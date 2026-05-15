@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, Calendar, Clock, Activity, 
@@ -38,6 +38,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
   ]);
   const [solaraInput, setSolaraInput] = useState('');
   const [clinicLimit, setClinicLimit] = useState(2); // Default to 2 if not loaded
+  const solaraChatRef = useRef<HTMLDivElement>(null);
   
   // Estados de Dados Reais
   const [specialistsList, setSpecialistsList] = useState<any[]>([]);
@@ -181,6 +182,12 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  useEffect(() => {
+    if (solaraChatRef.current) {
+      solaraChatRef.current.scrollTop = solaraChatRef.current.scrollHeight;
+    }
+  }, [solaraMessages]);
 
   const handleSaveAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1878,7 +1885,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
         </AnimatePresence>
         <AnimatePresence>
           {showSolara && (
-            <motion.div initial={{ opacity: 0, y: 20, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.9 }} style={{ width: 420, height: 570, background: '#fff', borderRadius: 28, boxShadow: '0 25px 60px -12px rgba(19, 15, 64, 0.4)', border: '1px solid rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <motion.div initial={{ opacity: 0, y: 20, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.9 }} style={{ width: 420, height: 610, background: '#fff', borderRadius: 28, boxShadow: '0 25px 60px -12px rgba(19, 15, 64, 0.4)', border: '1px solid rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               <div style={{ background: colors.primary, padding: '24px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div style={{ width: 40, height: 40, background: colors.accent, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1895,9 +1902,9 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                 </div>
               </div>
               
-              <div style={{ flex: 1, padding: 20, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, background: '#f8fafc' }}>
+              <div ref={solaraChatRef} style={{ flex: 1, padding: 20, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, background: '#f8fafc' }}>
                 {solaraMessages.map((m, i) => (
-                  <div key={i} style={{ alignSelf: m.role === 'assistant' ? 'flex-start' : 'flex-end', background: m.role === 'assistant' ? '#fff' : colors.primary, color: m.role === 'assistant' ? colors.primary : '#fff', padding: '12px 16px', borderRadius: m.role === 'assistant' ? '0 16px 16px 16px' : '16px 16px 0 16px', fontSize: '1.1rem', fontWeight: 500, maxWidth: '85%', boxShadow: '0 4px 10px rgba(0,0,0,0.02)', border: m.role === 'assistant' ? '1px solid rgba(0,0,0,0.05)' : 'none' }}>
+                  <div key={i} style={{ alignSelf: m.role === 'assistant' ? 'flex-start' : 'flex-end', background: m.role === 'assistant' ? '#fff' : colors.primary, color: m.role === 'assistant' ? colors.primary : '#fff', padding: '12px 16px', borderRadius: m.role === 'assistant' ? '0 16px 16px 16px' : '16px 16px 0 16px', fontSize: '15px', fontWeight: 500, maxWidth: '85%', boxShadow: '0 4px 10px rgba(0,0,0,0.02)', border: m.role === 'assistant' ? '1px solid rgba(0,0,0,0.05)' : 'none' }}>
                     {m.content}
                   </div>
                 ))}
@@ -1909,7 +1916,7 @@ const Dashboard = ({ onLogout, clinicId }: DashboardProps) => {
                   onChange={e => setSolaraInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSolaraSend()}
                   placeholder="Digite sua dúvida..." 
-                  style={{ flex: 1, padding: '12px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', fontSize: '1.1rem' }} 
+                  style={{ flex: 1, padding: '12px 16px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', fontSize: '15px' }} 
                 />
                 <button onClick={handleSolaraSend} style={{ background: colors.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Send size={20} />
